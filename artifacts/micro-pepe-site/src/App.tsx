@@ -85,7 +85,7 @@ function Home() {
             <ScrollLink href="#community">community</ScrollLink>
           </nav>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <a className="nav-buy" href={BUY_URL} target="_blank" rel="noreferrer" data-testid="link-buy-header">buy $µPEPE <ArrowUpRight size={13} /></a>
+            <a className="nav-buy" href={BUY_URL} target="_blank" rel="noreferrer" data-testid="link-buy-header">buy $MICRO <ArrowUpRight size={13} /></a>
             <button className="button-outline mobile-menu-button" onClick={() => setMobileNav(!mobileNav)} aria-label="Toggle navigation" data-testid="button-toggle-navigation" style={{ display: 'none', minHeight: 38, padding: '0 10px' }}>
               {mobileNav ? <X size={16} /> : <Menu size={16} />}
             </button>
@@ -216,7 +216,7 @@ function Home() {
             <div className="cta-panel">
               <h3>Buy a little.<br />Believe a little.</h3>
               <p>Not financial advice. Barely advice at all. Just a link to the smallest coin on the internet.</p>
-              <a className="button-solid" href={BUY_URL} target="_blank" rel="noreferrer" data-testid="link-buy-final">buy $µPEPE <ArrowUpRight size={15} /></a>
+              <a className="button-solid" href={BUY_URL} target="_blank" rel="noreferrer" data-testid="link-buy-final">buy $MICRO <ArrowUpRight size={15} /></a>
             </div>
             <div className="links-panel">
               <h3>the small club is open</h3>
