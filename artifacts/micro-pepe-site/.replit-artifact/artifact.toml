@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Micro Pepe"
+description = "A playful single-page meme coin landing site for Micro Pepe, with interactive frog moments, project lore, and clear community links."
+version = "1.0.0"
+id = "artifacts/micro-pepe-site"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 23662
+
+[services.development]
+run = "pnpm --filter @workspace/micro-pepe-site run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/micro-pepe-site", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/micro-pepe-site/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23662"
+BASE_PATH = "/"
