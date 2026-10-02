@@ -47,6 +47,7 @@ args = "./run-node2.sh"
 [[ports]]
 localPort = 1317
 externalPort = 3002
+exposeLocalhost = true
 
 [[ports]]
 localPort = 3000
@@ -55,11 +56,14 @@ externalPort = 80
 [[ports]]
 localPort = 26656
 externalPort = 3001
+exposeLocalhost = true
 
 [[ports]]
 localPort = 26657
 externalPort = 3000
+exposeLocalhost = true
 
 [[ports]]
 localPort = 26666
 externalPort = 3003
+

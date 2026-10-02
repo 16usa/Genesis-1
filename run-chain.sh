@@ -19,6 +19,10 @@ if [ ! -x "$BIN" ]; then
   exit 1
 fi
 
+if [ -x "$ROOT/secure-private-bindings.sh" ]; then
+  "$ROOT/secure-private-bindings.sh" --primary-only
+fi
+
 if [ ! -f "$HOME_DIR/config/genesis.json" ]; then
   echo "ERROR: Genesis state not initialized: $HOME_DIR"
   exit 1
