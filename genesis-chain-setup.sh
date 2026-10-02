@@ -23,6 +23,9 @@ fi
 
 export PATH="$TOOLS/go/bin:$TOOLS/bin:$PATH"
 export GOBIN="$TOOLS/bin"
+export GOMAXPROCS="${GOMAXPROCS:-2}"
+export GOFLAGS="${GOFLAGS:--p=1}"
+export GOMEMLIMIT="${GOMEMLIMIT:-700MiB}"
 
 if [ ! -x "$TOOLS/bin/ignite" ]; then
   echo "== Installing Ignite CLI locally =="
@@ -52,7 +55,8 @@ if [ ! -d "$ROOT/genesis-chain" ]; then
   ignite cosmos scaffold chain genesis-chain \
     --address-prefix gen \
     --default-denom ugen \
-    --skip-git
+    --skip-git \
+    --skip-proto
 else
   echo "== genesis-chain already exists; scaffold skipped =="
 fi
