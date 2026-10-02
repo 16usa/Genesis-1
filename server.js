@@ -687,6 +687,91 @@ async function networkPeers(){
 
 
 // GENESIS VALIDATOR OPERATIONS v1
+
+// GENESIS VALIDATOR OPERATIONS v1.1 RECENT SIGNING
+let validatorRecentSigningCache = { at:0, value:null };
+
+async function validatorRecentSigning(windowSize=50){
+  const now = Date.now();
+
+  if(
+    validatorRecentSigningCache.value &&
+    now - validatorRecentSigningCache.at < 15000
+  ){
+    return validatorRecentSigningCache.value;
+  }
+
+  const status = await fetchJson(RPC + '/status');
+  const latestHeight = Number(status?.result?.sync_info?.latest_block_height || 0);
+
+  if(!latestHeight){
+    return {
+      windowSize:0,
+      fromHeight:null,
+      toHeight:null,
+      rates:{}
+    };
+  }
+
+  const toHeight = latestHeight;
+  const fromHeight = Math.max(2,toHeight-windowSize+1);
+  const heights = [];
+
+  for(let height=fromHeight;height<=toHeight;height++){
+    heights.push(height);
+  }
+
+  const results = await Promise.allSettled(
+    heights.map((height)=>fetchJson(RPC + `/block?height=${height}`))
+  );
+
+  const rates = new Map();
+
+  for(const result of results){
+    if(result.status !== 'fulfilled') continue;
+
+    const signatures =
+      result.value?.result?.block?.last_commit?.signatures || [];
+
+    const signed = new Set(
+      signatures
+        .map((signature)=>String(signature?.validator_address || '').toUpperCase())
+        .filter(Boolean)
+    );
+
+    for(const address of signed){
+      if(!rates.has(address)){
+        rates.set(address,{signed:0});
+      }
+      rates.get(address).signed += 1;
+    }
+  }
+
+  const observedBlocks = results.filter((result)=>result.status === 'fulfilled').length;
+  const output = {};
+
+  for(const [address,data] of rates.entries()){
+    const signed = Number(data.signed || 0);
+    const missed = Math.max(0,observedBlocks-signed);
+
+    output[address] = {
+      signed,
+      missed,
+      rate:observedBlocks > 0 ? signed/observedBlocks*100 : null
+    };
+  }
+
+  const value = {
+    windowSize:observedBlocks,
+    fromHeight,
+    toHeight,
+    rates:output
+  };
+
+  validatorRecentSigningCache = { at:now, value };
+  return value;
+}
+
 function validatorOpsNode(label,statusResult,netResult){
   if(statusResult.status !== 'fulfilled'){
     return {
@@ -766,6 +851,17 @@ async function validatorOperations(){
     }catch{}
   }
 
+  let recentSigning = {
+    windowSize:0,
+    fromHeight:null,
+    toHeight:null,
+    rates:{}
+  };
+
+  try{
+    recentSigning = await validatorRecentSigning(50);
+  }catch{}
+
   const operations = await Promise.all(validators.map(async(validator)=>{
     const identity = consensusIdentity(validator);
     const commission = validator?.commission?.commission_rates || {};
@@ -805,6 +901,16 @@ async function validatorOperations(){
       missedBlocksCounter:Number.isFinite(missedBlocks) ? missedBlocks : null,
       signedBlocksWindow:signedBlocksWindow || null,
       uptimePct:Number.isFinite(uptime) ? uptime : null,
+      recentWindow:recentSigning.windowSize || null,
+      recentSignedBlocks:identity.hex && recentSigning.rates?.[String(identity.hex).toUpperCase()]
+        ? recentSigning.rates[String(identity.hex).toUpperCase()].signed
+        : null,
+      recentMissedBlocks:identity.hex && recentSigning.rates?.[String(identity.hex).toUpperCase()]
+        ? recentSigning.rates[String(identity.hex).toUpperCase()].missed
+        : null,
+      recentSigningRate:identity.hex && recentSigning.rates?.[String(identity.hex).toUpperCase()]
+        ? recentSigning.rates[String(identity.hex).toUpperCase()].rate
+        : null,
       node:node ? {
         label:node.label,online:node.online,height:node.height,
         catchingUp:node.catchingUp,peers:node.peers,id:node.id
@@ -824,8 +930,10 @@ async function validatorOperations(){
     if(validator.jailed) warnings.push(`${validator.moniker.toUpperCase()} JAILED`);
     if(validator.status !== 'BONDED') warnings.push(`${validator.moniker.toUpperCase()} ${validator.status}`);
     if(!validator.node) warnings.push(`${validator.moniker.toUpperCase()} NODE UNMAPPED`);
-    if(validator.uptimePct != null && validator.uptimePct < 99){
-      warnings.push(`${validator.moniker.toUpperCase()} WINDOW UPTIME ${validator.uptimePct.toFixed(2)}%`);
+    if(validator.recentSigningRate != null && validator.recentSigningRate < 99){
+      warnings.push(
+        `${validator.moniker.toUpperCase()} RECENT ${validator.recentWindow || 0} RATE ${validator.recentSigningRate.toFixed(2)}%`
+      );
     }
   }
 
@@ -834,7 +942,7 @@ async function validatorOperations(){
     !connected ||
     (heightDelta != null && heightDelta > 3) ||
     operations.some((validator)=>!validator.node) ||
-    operations.some((validator)=>validator.uptimePct != null && validator.uptimePct < 99)
+    operations.some((validator)=>validator.recentSigningRate != null && validator.recentSigningRate < 99)
   );
 
   return {
@@ -843,6 +951,9 @@ async function validatorOperations(){
     heightDelta,
     bondedValidators:operations.length,
     signedBlocksWindow:signedBlocksWindow || null,
+    recentSigningWindow:recentSigning.windowSize || null,
+    recentSigningFromHeight:recentSigning.fromHeight || null,
+    recentSigningToHeight:recentSigning.toHeight || null,
     nodes:{primary,secondary},
     validators:operations,
     warnings

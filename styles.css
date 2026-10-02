@@ -1194,3 +1194,9 @@ svg{display:block;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:
   }
   .validator-ops-metrics>span:nth-child(even){padding-left:10px;padding-right:0;border-right:0}
 }
+
+
+/* GENESIS VALIDATOR OPERATIONS v1.1 */
+.validator-ops-metrics b{
+  min-height:1.25em;
+}

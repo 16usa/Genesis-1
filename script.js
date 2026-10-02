@@ -800,6 +800,7 @@
 
   
   // GENESIS VALIDATOR OPERATIONS v1
+  // GENESIS VALIDATOR OPERATIONS v1.1
   const fmtOpsUptime = (value) => {
     const n = Number(value);
     if(!Number.isFinite(n)) return '—';
@@ -853,8 +854,10 @@
                 <span><small>VOTING POWER</small><b>${escapeHtml(validator.votingPower ?? '—')}</b></span>
                 <span><small>BONDED</small><b>${escapeHtml(fmtGen(validator.tokens))}</b></span>
                 <span><small>COMMISSION</small><b>${escapeHtml(fmtPercent(validator.commissionRate))}</b></span>
-                <span><small>WINDOW UPTIME</small><b>${escapeHtml(fmtOpsUptime(validator.uptimePct))}</b></span>
-                <span><small>MISSED BLOCKS</small><b>${escapeHtml(validator.missedBlocksCounter ?? '—')}</b></span>
+                <span><small>RECENT ${escapeHtml(validator.recentWindow ?? 50)} RATE</small><b>${escapeHtml(fmtOpsUptime(validator.recentSigningRate))}</b></span>
+                <span><small>RECENT MISSED</small><b>${escapeHtml(validator.recentMissedBlocks ?? '—')}</b></span>
+                <span><small>SLASHING UPTIME</small><b>${escapeHtml(fmtOpsUptime(validator.uptimePct))}</b></span>
+                <span><small>WINDOW MISSED</small><b>${escapeHtml(validator.missedBlocksCounter ?? '—')}</b></span>
                 <span><small>HEIGHT</small><b>${escapeHtml(node?.height != null ? Number(node.height).toLocaleString('en-US') : '—')}</b></span>
                 <span><small>PEERS</small><b>${escapeHtml(node?.peers ?? '—')}</b></span>
               </span>
