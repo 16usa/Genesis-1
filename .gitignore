@@ -6,3 +6,7 @@ genesis-chain/data/
 .pre-genesis-spacex-style-backup.tar.gz
 
 .micropepe-before-genesis-v3.tar.gz
+
+.genesis-data/
+run-chain.sh.before-*
+.gitignore.before-*

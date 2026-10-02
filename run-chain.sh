@@ -12,21 +12,15 @@ export GOFLAGS="${GOFLAGS:--p=1}"
 export GOMEMLIMIT="${GOMEMLIMIT:-700MiB}"
 
 BIN="${GENESIS_BIN:-$ROOT/.tools/bin/genesis-chaind}"
+HOME_DIR="${GENESIS_HOME:-$ROOT/.genesis-data}"
 
 if [ ! -x "$BIN" ]; then
-  BIN="$(command -v genesis-chaind 2>/dev/null || true)"
-fi
-
-HOME_DIR="${GENESIS_HOME:-$HOME/.genesis-chain}"
-
-if [ ! -x "$BIN" ]; then
-  echo "ERROR: genesis-chaind binary not found."
-  echo "Run the one-time chain build from Shell before starting the workflow."
+  echo "ERROR: genesis-chaind binary not found: $BIN"
   exit 1
 fi
 
 if [ ! -f "$HOME_DIR/config/genesis.json" ]; then
-  echo "ERROR: Genesis chain data directory not found: $HOME_DIR"
+  echo "ERROR: Genesis state not initialized: $HOME_DIR"
   exit 1
 fi
 
