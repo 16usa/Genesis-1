@@ -53,3 +53,21 @@ for p in d.get("peers",[]):
         p.get("remote_ip","—")
     ))
 ' || true
+
+echo
+echo "BONDED VALIDATORS:"
+curl -fsS "http://127.0.0.1:1317/cosmos/staking/v1beta1/validators?status=BOND_STATUS_BONDED&pagination.limit=100" 2>/dev/null | python3 -c '
+import json,sys
+d=json.load(sys.stdin)
+vals=d.get("validators",[])
+print(len(vals))
+for v in vals:
+    desc=v.get("description") or {}
+    print("  {}  {}  tokens={}".format(
+        desc.get("moniker","VALIDATOR"),
+        v.get("operator_address","—"),
+        v.get("tokens","0")
+    ))
+' || echo "STAKING API UNAVAILABLE"
+
+# GENESIS VALIDATOR 2 v1
