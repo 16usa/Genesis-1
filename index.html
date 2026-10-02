@@ -27,6 +27,9 @@
     </nav>
 
     <div class="header-right">
+      <button class="global-search-trigger" id="globalSearchTrigger" type="button" aria-label="Search Genesis network">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.2"/><path d="m15 15 4.5 4.5"/></svg>
+      </button>
       <a class="status-link" href="#network"><span class="status-dot" id="statusDot"></span><span id="headerStatus">OFFLINE</span></a>
       <button class="menu-button" id="menuButton" type="button" aria-label="Open menu" aria-expanded="false">
         <span></span><span></span><span></span>
@@ -306,6 +309,40 @@
     </section>
   </main>
 
+
+
+  <!-- GENESIS GLOBAL SEARCH v1 -->
+  <div class="global-search" id="globalSearch" aria-hidden="true">
+    <div class="global-search-backdrop" data-global-search-close></div>
+    <section class="global-search-panel" role="dialog" aria-modal="true" aria-labelledby="globalSearchTitle">
+      <div class="global-search-head">
+        <div>
+          <p class="eyebrow">UNIFIED EXPLORER</p>
+          <h2 id="globalSearchTitle">SEARCH GENESIS</h2>
+        </div>
+        <button class="global-search-close" id="globalSearchClose" type="button" aria-label="Close global search"><span></span><span></span></button>
+      </div>
+
+      <form class="global-search-form" id="globalSearchForm">
+        <label for="globalSearchInput">BLOCK · TX HASH · ADDRESS · VALIDATOR</label>
+        <div class="global-search-line">
+          <input id="globalSearchInput" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="#820 / 64 CHARACTER HASH / gen1... / genvaloper1..." />
+          <button type="submit" aria-label="Search">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+          </button>
+        </div>
+      </form>
+
+      <div class="global-search-status" id="globalSearchStatus">AUTO-DETECTS THE IDENTIFIER TYPE.</div>
+
+      <div class="global-search-types" aria-hidden="true">
+        <div><span>BLOCK</span><code>#820</code></div>
+        <div><span>TRANSACTION</span><code>64 CHARACTER HASH</code></div>
+        <div><span>ADDRESS</span><code>gen1...</code></div>
+        <div><span>VALIDATOR</span><code>genvaloper1...</code></div>
+      </div>
+    </section>
+  </div>
 
   <div class="tx-modal" id="txModal" aria-hidden="true">
     <div class="tx-modal-backdrop" data-tx-close></div>

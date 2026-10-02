@@ -346,12 +346,108 @@
     }
   }
 
+
+  // GENESIS GLOBAL SEARCH v1
+  function setGlobalSearch(open) {
+    const modal = $('globalSearch');
+    if(!modal) return;
+
+    modal.classList.toggle('open',open);
+    modal.setAttribute('aria-hidden',String(!open));
+    document.body.classList.toggle('global-search-open',open);
+
+    if(open){
+      setMenu(false);
+      text('globalSearchStatus','AUTO-DETECTS THE IDENTIFIER TYPE.');
+      setTimeout(()=>{
+        const input = $('globalSearchInput');
+        if(input){
+          input.focus({preventScroll:true});
+          input.select();
+        }
+      },40);
+    }
+  }
+
+  function detectGlobalSearchType(rawValue) {
+    const value = String(rawValue || '').trim();
+    const lower = value.toLowerCase();
+    const upper = value.toUpperCase();
+
+    if(/^[0-9A-F]{64}$/.test(upper)){
+      return {type:'transaction',value:upper};
+    }
+
+    if(/^genvaloper1[0-9a-z]{20,}$/.test(lower)){
+      return {type:'validator',value:lower};
+    }
+
+    if(/^gen1[0-9a-z]{20,}$/.test(lower)){
+      return {type:'address',value:lower};
+    }
+
+    const blockMatch = value.match(/^#?([0-9]+)$/);
+    if(blockMatch){
+      return {type:'block',value:blockMatch[1]};
+    }
+
+    return {type:null,value};
+  }
+
+  function runGlobalSearch(rawValue) {
+    const result = detectGlobalSearchType(rawValue);
+
+    if(!result.value){
+      text('globalSearchStatus','ENTER A BLOCK, TX HASH, ADDRESS OR VALIDATOR.');
+      return;
+    }
+
+    if(!result.type){
+      text('globalSearchStatus','UNRECOGNIZED IDENTIFIER.');
+      return;
+    }
+
+    if(result.type === 'transaction'){
+      setGlobalSearch(false);
+      openTransaction(result.value);
+      return;
+    }
+
+    if(result.type === 'validator'){
+      setGlobalSearch(false);
+      openValidator(result.value);
+      return;
+    }
+
+    if(result.type === 'address'){
+      setGlobalSearch(false);
+      openAddress(result.value);
+      return;
+    }
+
+    if(result.type === 'block'){
+      setGlobalSearch(false);
+      openBlock(result.value);
+    }
+  }
+
   $('addressForm')?.addEventListener('submit',(e)=>{
     e.preventDefault();
     lookupAddress($('addressInput')?.value || '');
   });
 
 
+
+
+  $('globalSearchTrigger')?.addEventListener('click',()=>setGlobalSearch(true));
+  $('globalSearchClose')?.addEventListener('click',()=>setGlobalSearch(false));
+  $('globalSearch')?.querySelectorAll('[data-global-search-close]').forEach((element)=>{
+    element.addEventListener('click',()=>setGlobalSearch(false));
+  });
+  $('globalSearchForm')?.addEventListener('submit',(event)=>{
+    event.preventDefault();
+    runGlobalSearch($('globalSearchInput')?.value || '');
+  });
 
   $('blocksList')?.addEventListener('click',(event)=>{
     const row = event.target.closest('[data-block-height]');
@@ -459,7 +555,25 @@
   });
   $('txModalClose')?.addEventListener('click',()=>setTxModal(false));
   $('txModal')?.querySelectorAll('[data-tx-close]').forEach((element)=>element.addEventListener('click',()=>setTxModal(false)));
-  addEventListener('keydown',(event)=>{if (event.key === 'Escape'){setTxModal(false);setBlockModal(false);setAddressModal(false);setValidatorModal(false);}});
+  addEventListener('keydown',(event)=>{
+    if(event.key === 'Escape'){
+      setGlobalSearch(false);
+      setTxModal(false);
+      setBlockModal(false);
+      setAddressModal(false);
+      setValidatorModal(false);
+      return;
+    }
+
+    if(event.key === '/' && !event.metaKey && !event.ctrlKey && !event.altKey){
+      const tag = String(document.activeElement?.tagName || '').toLowerCase();
+      const isTyping = tag === 'input' || tag === 'textarea' || document.activeElement?.isContentEditable;
+      if(!isTyping){
+        event.preventDefault();
+        setGlobalSearch(true);
+      }
+    }
+  });
 
 
   // GENESIS VALIDATOR EXPLORER v1
