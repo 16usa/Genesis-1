@@ -371,3 +371,11 @@ svg{display:block;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:
   .tx-modal-panel{width:100%;padding:82px 22px 40px;border-left:0}.tx-detail-row{grid-template-columns:92px minmax(0,1fr);gap:14px}
 }
 
+
+/* GENESIS EXPLORER DISPLAY FIX v2 */
+.tx-from code,
+.tx-to code,
+#txDetailFrom,
+#txDetailTo{
+  text-transform:none !important;
+}

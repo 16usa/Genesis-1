@@ -29,7 +29,7 @@
   const fmtGen = (micro) => {
     const n = Number(micro || 0) / 1_000_000;
     if (!Number.isFinite(n)) return '— GEN';
-    return `${n.toLocaleString(undefined,{maximumFractionDigits:6})} GEN`;
+    return `${n.toLocaleString('en-US',{maximumFractionDigits:6})} GEN`;
   };
 
   async function getJson(url) {
@@ -96,7 +96,7 @@
     if (!iso) return '—';
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return '—';
-    return d.toLocaleString([],{year:'numeric',month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'}).toUpperCase();
+    return d.toLocaleString('en-US',{year:'numeric',month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false,timeZone:'UTC'}).replace(',', '').toUpperCase() + ' UTC';
   };
   function renderTransactions(transactions=[]) {
     const list = $('transactionsList');
