@@ -5,3 +5,33 @@ entrypoint = "server.js"
 
 [workflows]
 runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Genesis Site"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Genesis Chain"
+
+[[workflows.workflow]]
+name = "Genesis Site"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "./run-site.sh"
+waitForPort = 3000
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[workflows.workflow]]
+name = "Genesis Chain"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "./run-chain.sh"
