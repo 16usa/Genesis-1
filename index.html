@@ -357,22 +357,44 @@
 
   <div class="tx-modal" id="addressModal" aria-hidden="true">
     <div class="tx-modal-backdrop" data-address-close></div>
-    <section class="tx-modal-panel" role="dialog" aria-modal="true" aria-labelledby="addressModalTitle">
+    <section class="tx-modal-panel address-modal-panel" role="dialog" aria-modal="true" aria-labelledby="addressModalTitle">
       <div class="tx-modal-header">
         <div><p class="eyebrow">ADDRESS DETAILS</p><h2 id="addressModalTitle">ON-CHAIN ADDRESS</h2></div>
         <button class="tx-modal-close" id="addressModalClose" type="button" aria-label="Close address details"><span></span><span></span></button>
       </div>
-      <div class="tx-detail-list">
-        <div class="tx-detail-row"><span>ADDRESS</span><code id="addressDetailAddress">—</code></div>
-        <div class="tx-detail-row"><span>BALANCE</span><strong id="addressDetailBalance">— GEN</strong></div>
-        <div class="tx-detail-row"><span>INDEXED TX</span><strong id="addressDetailTxCount">—</strong></div>
-        <div class="tx-detail-row"><span>NATIVE ASSET</span><strong>GEN</strong></div>
+
+      <div class="address-identity">
+        <code id="addressDetailAddress">—</code>
+        <button class="address-copy-button" id="addressCopyButton" type="button">COPY</button>
       </div>
-      <div class="entity-subsection">
-        <div class="entity-subsection-title">RECENT ACTIVITY</div>
-        <div class="entity-activity-list" id="addressTxList">
-          <div class="entity-empty">LOADING…</div>
+
+      <div class="address-summary-grid">
+        <div class="address-summary-cell"><span>BALANCE</span><strong id="addressDetailBalance">— GEN</strong></div>
+        <div class="address-summary-cell"><span>INDEXED TX</span><strong id="addressDetailTxCount">—</strong></div>
+        <div class="address-summary-cell"><span>SENT</span><strong id="addressDetailSentCount">—</strong></div>
+        <div class="address-summary-cell"><span>RECEIVED</span><strong id="addressDetailReceivedCount">—</strong></div>
+        <div class="address-summary-cell"><span>TOTAL SENT</span><strong id="addressDetailSentAmount">— GEN</strong></div>
+        <div class="address-summary-cell"><span>TOTAL RECEIVED</span><strong id="addressDetailReceivedAmount">— GEN</strong></div>
+        <div class="address-summary-cell"><span>FIRST ACTIVITY</span><strong id="addressDetailFirstActivity">—</strong></div>
+        <div class="address-summary-cell"><span>LAST ACTIVITY</span><strong id="addressDetailLastActivity">—</strong></div>
+      </div>
+
+      <div class="address-activity-toolbar">
+        <div class="address-filter-group" id="addressFilterGroup" aria-label="Address activity filter">
+          <button class="address-filter active" type="button" data-address-filter="all">ALL</button>
+          <button class="address-filter" type="button" data-address-filter="sent">SENT</button>
+          <button class="address-filter" type="button" data-address-filter="received">RECEIVED</button>
         </div>
+        <div class="address-page-indicator" id="addressPageIndicator">PAGE 1 / 1</div>
+      </div>
+
+      <div class="entity-activity-list" id="addressTxList">
+        <div class="entity-empty">LOADING…</div>
+      </div>
+
+      <div class="address-pagination">
+        <button class="address-page-button" id="addressPrevPage" type="button">← PREVIOUS</button>
+        <button class="address-page-button" id="addressNextPage" type="button">NEXT →</button>
       </div>
     </section>
   </div>

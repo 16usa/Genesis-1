@@ -171,6 +171,15 @@
     document.body.classList.toggle('tx-modal-open',open);
   }
 
+  const addressExplorerState = {
+    address:'',
+    filter:'all',
+    page:1,
+    limit:10,
+    hasPrev:false,
+    hasNext:false
+  };
+
   function setAddressModal(open) {
     const modal = $('addressModal');
     if (!modal) return;
@@ -179,51 +188,19 @@
     document.body.classList.toggle('tx-modal-open',open);
   }
 
-  function renderBlockTransactions(hashes=[]) {
-    const list = $('blockTxList');
-    if (!list) return;
-    const clean = hashes.filter(Boolean);
-    if (!clean.length) {
-      list.innerHTML = '<div class="entity-empty">NO TRANSACTIONS IN THIS BLOCK</div>';
-      return;
-    }
-    list.innerHTML = clean.map((hash,index)=>`
-      <button class="entity-activity-row" type="button" data-tx-hash="${escapeHtml(hash)}">
-        <span class="entity-activity-main">
-          <b>TRANSACTION ${index + 1}</b>
-          <code>${escapeHtml(short(hash,16,12))}</code>
-        </span>
-        <span class="entity-activity-arrow">↗</span>
-      </button>
-    `).join('');
-  }
-
-  function renderBlockDetail(block={}) {
-    text('blockDetailHeight',block?.height ? `#${block.height}` : '—');
-    text('blockDetailHash',block?.hash || '—');
-    text('blockDetailChainId',(block?.chainId || '—').toUpperCase());
-    text('blockDetailTime',fmtDateTime(block?.time));
-    text('blockDetailTxCount',String(block?.txCount ?? '—'));
-    text('blockDetailProposer',block?.proposer || '—');
-    text('blockDetailPrevious',block?.previousHash || '—');
-    renderBlockTransactions(block?.txHashes || []);
-  }
-
-  async function openBlock(height) {
-    const h = String(height || '').replace(/^#/,'').trim();
-    if (!/^\d+$/.test(h)) return;
-    setTxModal(false);
-    setAddressModal(false);
-    renderBlockDetail({height:h});
-    text('blockDetailHash','LOADING…');
-    setBlockModal(true);
-    try {
-      const data = await getJson(`/api/genesis/block-detail?height=${encodeURIComponent(h)}`);
-      renderBlockDetail(data.block || {});
-    } catch {
-      text('blockDetailHash','UNAVAILABLE');
-      renderBlockTransactions([]);
-    }
+  function fmtActivityDate(iso) {
+    if(!iso) return '—';
+    const d = new Date(iso);
+    if(Number.isNaN(d.getTime())) return '—';
+    return d.toLocaleString('en-US',{
+      year:'numeric',
+      month:'short',
+      day:'2-digit',
+      hour:'2-digit',
+      minute:'2-digit',
+      hour12:false,
+      timeZone:'UTC'
+    }).replace(',', '').toUpperCase() + ' UTC';
   }
 
   function renderAddressTransactions(address,transactions=[]) {
@@ -231,52 +208,121 @@
     if (!list) return;
     const a = String(address || '').toLowerCase();
     const clean = transactions.filter((tx)=>tx && tx.hash);
+
     if (!clean.length) {
       list.innerHTML = '<div class="entity-empty">NO INDEXED TRANSACTIONS</div>';
       return;
     }
+
     list.innerHTML = clean.map((tx)=>{
       const sent = String(tx.from || '').toLowerCase() === a;
       const peer = sent ? tx.to : tx.from;
       return `
-        <button class="entity-activity-row address-activity-row" type="button" data-tx-hash="${escapeHtml(tx.hash)}">
-          <span class="entity-activity-main">
-            <b>${sent ? 'SENT' : 'RECEIVED'} · ${escapeHtml(fmtCoin(tx.amount))}</b>
-            <code>${sent ? 'TO' : 'FROM'} ${escapeHtml(short(peer,13,10))}</code>
-          </span>
-          <span class="entity-activity-meta">#${escapeHtml(tx.height || '—')} · ${escapeHtml(fmtTime(tx.timestamp))}</span>
-          <span class="entity-activity-arrow">↗</span>
-        </button>
+        <div class="address-activity-card">
+          <button class="address-tx-open" type="button" data-tx-hash="${escapeHtml(tx.hash)}">
+            <span class="entity-activity-main">
+              <b>${sent ? 'SENT' : 'RECEIVED'} · ${escapeHtml(fmtCoin(tx.amount))}</b>
+              <code>${escapeHtml(short(tx.hash,16,12))}</code>
+            </span>
+            <span class="entity-activity-meta">#${escapeHtml(tx.height || '—')} · ${escapeHtml(fmtTime(tx.timestamp))}</span>
+            <span class="entity-activity-arrow">↗</span>
+          </button>
+          <button class="address-peer-open" type="button" data-address-open="${escapeHtml(peer || '')}">
+            <span>${sent ? 'TO' : 'FROM'}</span>
+            <code>${escapeHtml(peer || '—')}</code>
+          </button>
+        </div>
       `;
     }).join('');
   }
 
   function renderAddressDetail(data={}) {
-    const address = String(data?.address || '').toLowerCase();
+    const address = String(data?.address || addressExplorerState.address || '').toLowerCase();
     const coin = (data?.balances || []).find((item)=>item?.denom === 'ugen');
+    const pagination = data?.pagination || {};
+
+    addressExplorerState.address = address;
+    addressExplorerState.filter = String(data?.filter || addressExplorerState.filter || 'all');
+    addressExplorerState.page = Number(pagination?.page || 1);
+    addressExplorerState.hasPrev = !!pagination?.hasPrev;
+    addressExplorerState.hasNext = !!pagination?.hasNext;
+
     text('addressDetailAddress',address || '—');
     text('addressDetailBalance',fmtGen(coin ? coin.amount : 0));
     text('addressDetailTxCount',String(data?.indexedTransactionCount ?? 0));
+    text('addressDetailSentCount',String(data?.sentCount ?? 0));
+    text('addressDetailReceivedCount',String(data?.receivedCount ?? 0));
+    text('addressDetailSentAmount',data?.sentAmountMicro != null ? fmtGen(data.sentAmountMicro) : '—');
+    text('addressDetailReceivedAmount',data?.receivedAmountMicro != null ? fmtGen(data.receivedAmountMicro) : '—');
+    text('addressDetailFirstActivity',fmtActivityDate(data?.firstActivity));
+    text('addressDetailLastActivity',fmtActivityDate(data?.lastActivity));
+    text('addressPageIndicator',`PAGE ${pagination?.page || 1} / ${pagination?.pages || 1}`);
+
+    document.querySelectorAll('[data-address-filter]').forEach((button)=>{
+      button.classList.toggle('active',button.dataset.addressFilter === addressExplorerState.filter);
+    });
+
+    const prev = $('addressPrevPage');
+    const next = $('addressNextPage');
+    if(prev) prev.disabled = !addressExplorerState.hasPrev;
+    if(next) next.disabled = !addressExplorerState.hasNext;
+
     renderAddressTransactions(address,data?.transactions || []);
   }
 
-  async function openAddress(address) {
-    const a = String(address || '').trim().toLowerCase();
-    if (!/^gen1[0-9a-z]{20,}$/.test(a)) return;
-    setTxModal(false);
-    setBlockModal(false);
-    renderAddressDetail({address:a,balances:[],indexedTransactionCount:'—',transactions:[]});
-    text('addressDetailBalance','LOADING…');
+  async function loadAddressPage() {
+    const a = addressExplorerState.address;
+    if(!a) return;
+
     const list = $('addressTxList');
-    if (list) list.innerHTML = '<div class="entity-empty">LOADING…</div>';
-    setAddressModal(true);
+    if(list) list.innerHTML = '<div class="entity-empty">LOADING…</div>';
+
     try {
-      const data = await getJson(`/api/genesis/address?address=${encodeURIComponent(a)}&limit=30`);
+      const params = new URLSearchParams({
+        address:a,
+        filter:addressExplorerState.filter,
+        page:String(addressExplorerState.page),
+        limit:String(addressExplorerState.limit)
+      });
+      const data = await getJson(`/api/genesis/address?${params.toString()}`);
       renderAddressDetail(data || {});
     } catch {
       text('addressDetailBalance','UNAVAILABLE');
       if (list) list.innerHTML = '<div class="entity-empty">ADDRESS API UNAVAILABLE</div>';
     }
+  }
+
+  async function openAddress(address) {
+    const a = String(address || '').trim().toLowerCase();
+    if (!/^gen1[0-9a-z]{20,}$/.test(a)) return;
+
+    setTxModal(false);
+    setBlockModal(false);
+    setValidatorModal(false);
+
+    addressExplorerState.address = a;
+    addressExplorerState.filter = 'all';
+    addressExplorerState.page = 1;
+    addressExplorerState.hasPrev = false;
+    addressExplorerState.hasNext = false;
+
+    renderAddressDetail({
+      address:a,
+      balances:[],
+      indexedTransactionCount:'—',
+      sentCount:'—',
+      receivedCount:'—',
+      sentAmountMicro:null,
+      receivedAmountMicro:null,
+      firstActivity:null,
+      lastActivity:null,
+      transactions:[],
+      filter:'all',
+      pagination:{page:1,pages:1,hasPrev:false,hasNext:false}
+    });
+    text('addressDetailBalance','LOADING…');
+    setAddressModal(true);
+    await loadAddressPage();
   }
 
   async function lookupAddress(address) {
@@ -341,10 +387,50 @@
     openTransaction(row.dataset.txHash);
   });
   $('addressTxList')?.addEventListener('click',(event)=>{
+    const addressButton = event.target.closest('[data-address-open]');
+    if(addressButton?.dataset?.addressOpen){
+      openAddress(addressButton.dataset.addressOpen);
+      return;
+    }
+
     const row = event.target.closest('[data-tx-hash]');
     if (!row?.dataset?.txHash) return;
     setAddressModal(false);
     openTransaction(row.dataset.txHash);
+  });
+
+  $('addressFilterGroup')?.addEventListener('click',(event)=>{
+    const button = event.target.closest('[data-address-filter]');
+    if(!button?.dataset?.addressFilter) return;
+    addressExplorerState.filter = button.dataset.addressFilter;
+    addressExplorerState.page = 1;
+    loadAddressPage();
+  });
+
+  $('addressPrevPage')?.addEventListener('click',()=>{
+    if(!addressExplorerState.hasPrev) return;
+    addressExplorerState.page = Math.max(1,addressExplorerState.page-1);
+    loadAddressPage();
+  });
+
+  $('addressNextPage')?.addEventListener('click',()=>{
+    if(!addressExplorerState.hasNext) return;
+    addressExplorerState.page += 1;
+    loadAddressPage();
+  });
+
+  $('addressCopyButton')?.addEventListener('click',async()=>{
+    const value = addressExplorerState.address;
+    if(!value) return;
+    const button = $('addressCopyButton');
+    try{
+      await navigator.clipboard.writeText(value);
+      if(button) button.textContent = 'COPIED';
+      setTimeout(()=>{if(button) button.textContent='COPY';},1200);
+    }catch{
+      if(button) button.textContent = 'COPY FAILED';
+      setTimeout(()=>{if(button) button.textContent='COPY';},1200);
+    }
   });
 
 

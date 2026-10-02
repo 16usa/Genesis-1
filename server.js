@@ -146,53 +146,152 @@ async function blockDetail(height){
     txHashes:txs.map(txHashFromBase64).filter(Boolean)
   };
 }
-async function transactionsByQuery(query,limit=50){
-  const safeLimit = Math.max(1,Math.min(100,Number(limit) || 50));
+
+async function transactionsByQueryPage(query,page=1,limit=100){
+  const safePage = Math.max(1,Number(page) || 1);
+  const safeLimit = Math.max(1,Math.min(100,Number(limit) || 100));
   const params = new URLSearchParams({
     query:String(query || ''),
-    page:'1',
+    page:String(safePage),
     limit:String(safeLimit),
     order_by:'ORDER_BY_DESC'
   });
   const data = await fetchJson(API + '/cosmos/tx/v1beta1/txs?' + params.toString());
   const txs = Array.isArray(data?.txs) ? data.txs : [];
   const responses = Array.isArray(data?.tx_responses) ? data.tx_responses : [];
-  return txs.map((tx,index)=>normalizeTx(tx,responses[index])).filter(Boolean);
+  const transactions = txs.map((tx,index)=>normalizeTx(tx,responses[index])).filter(Boolean);
+  const reportedTotal = Number(data?.total ?? data?.pagination?.total ?? 0);
+  return {
+    transactions,
+    total:Number.isFinite(reportedTotal) ? Math.max(reportedTotal,transactions.length) : transactions.length,
+    page:safePage,
+    limit:safeLimit
+  };
 }
-async function addressDetail(address,limit=30){
+async function transactionsByQuery(query,limit=50){
+  const result = await transactionsByQueryPage(query,1,limit);
+  return result.transactions;
+}
+async function collectTransactionsByQuery(query,maxItems=2000){
+  const pageSize = 100;
+  const hardMax = Math.max(pageSize,Math.min(5000,Number(maxItems) || 2000));
+  const transactions = [];
+  let page = 1;
+  let reportedTotal = 0;
+  let complete = false;
+
+  while(transactions.length < hardMax){
+    const result = await transactionsByQueryPage(query,page,pageSize);
+    reportedTotal = Math.max(reportedTotal,Number(result.total || 0));
+    transactions.push(...result.transactions);
+
+    if(result.transactions.length < pageSize){
+      complete = true;
+      break;
+    }
+    if(reportedTotal > 0 && transactions.length >= reportedTotal){
+      complete = true;
+      break;
+    }
+    page += 1;
+  }
+
+  const deduped = Array.from(new Map(
+    transactions.filter((tx)=>tx?.hash).map((tx)=>[tx.hash,tx])
+  ).values());
+
+  if(reportedTotal > 0 && deduped.length >= reportedTotal) complete = true;
+
+  return {
+    transactions:deduped,
+    total:Math.max(reportedTotal,deduped.length),
+    complete
+  };
+}
+function txMicroAmount(tx){
+  const coin = tx?.amount;
+  if(!coin || coin?.denom !== 'ugen') return 0;
+  const value = Number(coin?.amount || 0);
+  return Number.isFinite(value) ? value : 0;
+}
+function addressTxSort(a,b){
+  const ah = Number(a?.height || 0);
+  const bh = Number(b?.height || 0);
+  if(ah !== bh) return bh-ah;
+  return String(b?.timestamp || '').localeCompare(String(a?.timestamp || ''));
+}
+async function addressDetail(address,{page=1,limit=10,filter='all'}={}){
+  const safePage = Math.max(1,Number(page) || 1);
+  const safeLimit = Math.max(5,Math.min(25,Number(limit) || 10));
+  const safeFilter = ['all','sent','received'].includes(String(filter).toLowerCase())
+    ? String(filter).toLowerCase() : 'all';
+
   const [balancesR,sentR,receivedR] = await Promise.allSettled([
     fetchJson(API + `/cosmos/bank/v1beta1/balances/${encodeURIComponent(address)}`),
-    transactionsByQuery(`message.sender='${address}'`,100),
-    transactionsByQuery(`transfer.recipient='${address}'`,100)
+    collectTransactionsByQuery(`message.sender='${address}'`,2000),
+    collectTransactionsByQuery(`transfer.recipient='${address}'`,2000)
   ]);
 
   const balances = balancesR.status === 'fulfilled' && Array.isArray(balancesR.value?.balances)
     ? balancesR.value.balances : [];
 
-  const merged = new Map();
-  for(const result of [sentR,receivedR]){
-    if(result.status !== 'fulfilled') continue;
-    for(const tx of result.value){
-      if(tx?.hash) merged.set(tx.hash,tx);
-    }
-  }
+  const sentData = sentR.status === 'fulfilled'
+    ? sentR.value : {transactions:[],total:0,complete:false};
+  const receivedData = receivedR.status === 'fulfilled'
+    ? receivedR.value : {transactions:[],total:0,complete:false};
 
-  const transactions = Array.from(merged.values())
-    .sort((a,b)=>{
-      const ah = Number(a?.height || 0);
-      const bh = Number(b?.height || 0);
-      if(ah !== bh) return bh-ah;
-      return String(b?.timestamp || '').localeCompare(String(a?.timestamp || ''));
-    });
+  const sentTransactions = sentData.transactions || [];
+  const receivedTransactions = receivedData.transactions || [];
 
-  const safeLimit = Math.max(1,Math.min(50,Number(limit) || 30));
+  const merged = Array.from(new Map(
+    [...sentTransactions,...receivedTransactions]
+      .filter((tx)=>tx?.hash)
+      .map((tx)=>[tx.hash,tx])
+  ).values()).sort(addressTxSort);
+
+  let filtered = merged;
+  if(safeFilter === 'sent') filtered = [...sentTransactions].sort(addressTxSort);
+  if(safeFilter === 'received') filtered = [...receivedTransactions].sort(addressTxSort);
+
+  const totalFiltered = filtered.length;
+  const totalPages = Math.max(1,Math.ceil(totalFiltered / safeLimit));
+  const boundedPage = Math.min(safePage,totalPages);
+  const offset = (boundedPage-1)*safeLimit;
+  const transactions = filtered.slice(offset,offset+safeLimit);
+
+  const summaryComplete = !!sentData.complete && !!receivedData.complete;
+  const newest = merged[0] || null;
+  const oldest = summaryComplete && merged.length ? merged[merged.length-1] : null;
+
+  const sentAmountMicro = sentData.complete
+    ? sentTransactions.reduce((sum,tx)=>sum+txMicroAmount(tx),0) : null;
+  const receivedAmountMicro = receivedData.complete
+    ? receivedTransactions.reduce((sum,tx)=>sum+txMicroAmount(tx),0) : null;
+
   return {
     address,
     balances,
-    indexedTransactionCount:transactions.length,
-    transactions:transactions.slice(0,safeLimit)
+    filter:safeFilter,
+    summaryComplete,
+    indexedTransactionCount:merged.length,
+    sentCount:Number(sentData.total || sentTransactions.length || 0),
+    receivedCount:Number(receivedData.total || receivedTransactions.length || 0),
+    sentAmountMicro,
+    receivedAmountMicro,
+    firstActivity:oldest?.timestamp || null,
+    lastActivity:newest?.timestamp || null,
+    transactions,
+    pagination:{
+      page:boundedPage,
+      limit:safeLimit,
+      total:totalFiltered,
+      pages:totalPages,
+      hasPrev:boundedPage > 1,
+      hasNext:boundedPage < totalPages
+    }
   };
 }
+
 
 
 // GENESIS VALIDATOR EXPLORER v1
@@ -500,9 +599,11 @@ const server = http.createServer(async(req,res)=>{
 
     if(u.pathname==='/api/genesis/address'){
       const address = String(u.searchParams.get('address') || '').toLowerCase();
-      const limit = u.searchParams.get('limit') || '30';
+      const page = u.searchParams.get('page') || '1';
+      const limit = u.searchParams.get('limit') || '10';
+      const filter = u.searchParams.get('filter') || 'all';
       if(!validAddress(address)) return sendJson(res,400,{error:'invalid genesis address'});
-      return sendJson(res,200,await addressDetail(address,limit));
+      return sendJson(res,200,await addressDetail(address,{page,limit,filter}));
     }
 
     if(u.pathname==='/api/genesis/balance'){
