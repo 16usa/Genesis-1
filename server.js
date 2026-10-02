@@ -221,12 +221,20 @@ function averageBlockTimeSeconds(blocks){
   return deltas.reduce((sum,value)=>sum+value,0)/deltas.length;
 }
 async function totalTransactionCount(){
-  const queries = [
+  const counts = [];
+
+  const addCount = (value) => {
+    const total = Number(value);
+    if(Number.isFinite(total) && total >= 0) counts.push(total);
+  };
+
+  const rpcQueries = [
     "tm.event='Tx'",
-    'tx.height > 0'
+    'tx.height > 0',
+    "message.action='/cosmos.bank.v1beta1.MsgSend'"
   ];
 
-  for(const query of queries){
+  for(const query of rpcQueries){
     try{
       const data = await rpcJson('tx_search',{
         query,
@@ -235,15 +243,13 @@ async function totalTransactionCount(){
         per_page:'1',
         order_by:'desc'
       });
-      const total = Number(data?.result?.total_count);
-      if(Number.isFinite(total)) return total;
+      addCount(data?.result?.total_count);
     }catch{}
   }
 
   try{
     const recent = await recentTransactions(1);
-    const total = Number(recent?.total);
-    if(Number.isFinite(total)) return total;
+    addCount(recent?.total);
   }catch{}
 
   try{
@@ -253,11 +259,15 @@ async function totalTransactionCount(){
       order_by:'ORDER_BY_DESC'
     });
     const data = await fetchJson(API + '/cosmos/tx/v1beta1/txs?' + params.toString());
-    const total = Number(data?.pagination?.total ?? data?.total);
-    if(Number.isFinite(total)) return total;
+    addCount(data?.pagination?.total ?? data?.total);
   }catch{}
 
-  return null;
+  if(!counts.length) return null;
+
+  // Some CometBFT builds return 0 for broad tx_search queries even when
+  // the Cosmos transaction index already contains transactions.
+  // Use the highest verified count instead of accepting the first zero.
+  return Math.max(...counts);
 }
 const BECH32_CHARSET = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l';
 function bech32Polymod(values){
