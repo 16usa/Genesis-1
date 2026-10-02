@@ -10,3 +10,5 @@ genesis-chain/data/
 .genesis-data/
 run-chain.sh.before-*
 .gitignore.before-*
+
+.genesis-node2/

@@ -35,3 +35,31 @@ name = "Genesis Chain"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "./run-chain.sh"
+
+
+[[workflows.workflow]]
+name = "Genesis Node 2"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "./run-node2.sh"
+
+[[ports]]
+localPort = 1317
+externalPort = 3002
+
+[[ports]]
+localPort = 3000
+externalPort = 80
+
+[[ports]]
+localPort = 26656
+externalPort = 3001
+
+[[ports]]
+localPort = 26657
+externalPort = 3000
+
+[[ports]]
+localPort = 26666
+externalPort = 3003
