@@ -528,6 +528,41 @@ async function validatorDetail(operatorAddress){
   };
 }
 
+
+// GENESIS NODE HEALTH v1
+async function nodeHealth(){
+  const [statusR,netR,mempoolR,apiR] = await Promise.allSettled([
+    fetchJson(RPC + '/status'),
+    fetchJson(RPC + '/net_info'),
+    fetchJson(RPC + '/num_unconfirmed_txs'),
+    fetchJson(API + '/cosmos/base/tendermint/v1beta1/blocks/latest')
+  ]);
+
+  const status = statusR.status === 'fulfilled' ? statusR.value : null;
+  const sync = status?.result?.sync_info || {};
+  const node = status?.result?.node_info || {};
+
+  const net = netR.status === 'fulfilled' ? netR.value?.result || {} : {};
+  const mempool = mempoolR.status === 'fulfilled' ? mempoolR.value?.result || {} : {};
+
+  const peerValue = Number(net?.n_peers);
+  const pendingValue = Number(mempool?.n_txs ?? mempool?.total);
+  const bytesValue = Number(mempool?.total_bytes);
+
+  return {
+    rpcOnline:statusR.status === 'fulfilled',
+    apiOnline:apiR.status === 'fulfilled',
+    catchingUp:statusR.status === 'fulfilled' ? !!sync?.catching_up : null,
+    latestHeight:sync?.latest_block_height || null,
+    latestBlockTime:sync?.latest_block_time || null,
+    peers:Number.isFinite(peerValue) ? peerValue : null,
+    nodeVersion:node?.version || null,
+    txIndex:node?.other?.tx_index || null,
+    pendingTxs:Number.isFinite(pendingValue) ? pendingValue : null,
+    mempoolBytes:Number.isFinite(bytesValue) ? bytesValue : null
+  };
+}
+
 async function overview(){
   const status = await fetchJson(RPC + '/status');
   const sync = status?.result?.sync_info || {};
@@ -578,6 +613,7 @@ const server = http.createServer(async(req,res)=>{
 
     if(u.pathname==='/api/health') return sendJson(res,200,{ok:true,service:'genesis-web'});
     if(u.pathname==='/api/genesis/overview') return sendJson(res,200,await overview());
+    if(u.pathname==='/api/genesis/node-health') return sendJson(res,200,await nodeHealth());
 
 
     if(u.pathname==='/api/genesis/transactions'){

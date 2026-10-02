@@ -685,6 +685,75 @@
     }
   }
 
+
+  // GENESIS NODE HEALTH v1
+  const fmtNodeAge = (iso) => {
+    if(!iso) return '—';
+    const time = Date.parse(iso);
+    if(!Number.isFinite(time)) return '—';
+    const seconds = Math.max(0,Math.floor((Date.now()-time)/1000));
+    if(seconds < 60) return `${seconds} SEC`;
+    if(seconds < 3600) return `${Math.floor(seconds/60)} MIN`;
+    return `${Math.floor(seconds/3600)} HR`;
+  };
+
+  const fmtNodeBytes = (value) => {
+    const bytes = Number(value);
+    if(!Number.isFinite(bytes)) return '—';
+    if(bytes < 1024) return `${bytes} B`;
+    if(bytes < 1024*1024) return `${(bytes/1024).toFixed(1)} KB`;
+    return `${(bytes/(1024*1024)).toFixed(1)} MB`;
+  };
+
+  function setNodeHealthClass(id,state){
+    const el = $(id);
+    if(!el) return;
+    el.classList.remove('ok','warn');
+    if(state === 'ok') el.classList.add('ok');
+    if(state === 'warn') el.classList.add('warn');
+  }
+
+  function renderNodeHealth(data={}){
+    const rpcOnline = data?.rpcOnline === true;
+    const apiOnline = data?.apiOnline === true;
+    const catchingUp = data?.catchingUp;
+
+    text('nodeRpcStatus',rpcOnline ? 'ONLINE' : 'OFFLINE');
+    text('nodeApiStatus',apiOnline ? 'ONLINE' : 'OFFLINE');
+    text('nodeSyncHealth',catchingUp === null || catchingUp === undefined ? '—' : (catchingUp ? 'SYNCING' : 'READY'));
+    text('nodePeers',data?.peers != null ? String(data.peers) : '—');
+    text('nodeBlockAge',fmtNodeAge(data?.latestBlockTime));
+    text('nodeVersion',data?.nodeVersion || '—');
+    text('nodePendingTx',data?.pendingTxs != null ? String(data.pendingTxs) : '—');
+    text('nodeMempoolBytes',data?.mempoolBytes != null ? fmtNodeBytes(data.mempoolBytes) : '—');
+
+    setNodeHealthClass('nodeRpcStatus',rpcOnline ? 'ok' : 'warn');
+    setNodeHealthClass('nodeApiStatus',apiOnline ? 'ok' : 'warn');
+    setNodeHealthClass('nodeSyncHealth',catchingUp === false ? 'ok' : 'warn');
+
+    const healthy = rpcOnline && apiOnline && catchingUp === false;
+    text('nodeHealthState',healthy ? 'HEALTHY' : (rpcOnline ? 'DEGRADED' : 'OFFLINE'));
+    setNodeHealthClass('nodeHealthState',healthy ? 'ok' : 'warn');
+  }
+
+  async function loadNodeHealth(){
+    try{
+      const data = await getJson('/api/genesis/node-health');
+      renderNodeHealth(data || {});
+    }catch{
+      renderNodeHealth({
+        rpcOnline:false,
+        apiOnline:false,
+        catchingUp:null,
+        peers:null,
+        latestBlockTime:null,
+        nodeVersion:null,
+        pendingTxs:null,
+        mempoolBytes:null
+      });
+    }
+  }
+
   async function refresh() {
     try {
       const d = await getJson('/api/genesis/overview');
@@ -750,4 +819,6 @@
   setInterval(refresh,5000);
   setTimeout(loadTransactions,240);
   setInterval(loadTransactions,7000);
+  setTimeout(loadNodeHealth,320);
+  setInterval(loadNodeHealth,3000);
 })();
