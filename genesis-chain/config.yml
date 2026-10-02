@@ -1,0 +1,41 @@
+version: 1
+validation: sovereign
+
+accounts:
+  - name: validator
+    coins:
+      - "1000000000000ugen"
+  - name: treasury
+    coins:
+      - "20000000000000ugen"
+
+validators:
+  - name: validator
+    bonded: "100000000000ugen"
+
+genesis:
+  chain_id: "genesis-1"
+  app_state:
+    staking:
+      params:
+        bond_denom: "ugen"
+    mint:
+      params:
+        mint_denom: "ugen"
+        inflation_rate_change: "0.000000000000000000"
+        inflation_max: "0.000000000000000000"
+        inflation_min: "0.000000000000000000"
+    bank:
+      denom_metadata:
+        - description: "Native coin of Genesis Network"
+          denom_units:
+            - denom: "ugen"
+              exponent: 0
+              aliases: ["microgen"]
+            - denom: "gen"
+              exponent: 6
+              aliases: ["GEN"]
+          base: "ugen"
+          display: "gen"
+          name: "Genesis"
+          symbol: "GEN"

@@ -1,0 +1,35 @@
+GENESIS NETWORK / SPACEX-STYLE UI
+
+Visual system:
+- absolute black canvas
+- off-white technical text
+- DIN-like industrial typography
+- all-caps UI labels
+- 10/12/13/16 px small type scale
+- 48-60+ px display headlines
+- wide nav tracking
+- transparent/fixed top navigation
+- minimalist hairline icons
+- outline CTA buttons
+- no colored accents
+- no card shadows
+- no old MicroPepe branding/assets in the active site
+
+Network:
+- Chain ID: genesis-1
+- Native coin: GEN
+- Base denom: ugen
+- Decimals: 6
+- Address prefix: gen1...
+- Genesis supply: 21,000,000 GEN
+
+Manual setup:
+  ./genesis-chain-setup.sh
+
+Manual blockchain start:
+  ./run-chain.sh
+
+Manual website start:
+  ./run-site.sh
+
+The installer does not start/restart/kill/reload any process.

@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#000000" />
+  <meta name="description" content="GENESIS — sovereign layer-one network and public explorer." />
+  <title>GENESIS — Network</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;700&family=Barlow+Condensed:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="site-header" id="siteHeader">
+    <a class="brand" href="#top" aria-label="Genesis home">
+      <span class="brand-word">GENESIS</span>
+      <span class="brand-cut" aria-hidden="true"></span>
+    </a>
+
+    <nav class="desktop-nav" aria-label="Primary navigation">
+      <a href="#network">NETWORK</a>
+      <a href="#blocks">BLOCKS</a>
+      <a href="#explorer">EXPLORER</a>
+      <a href="#validators">VALIDATORS</a>
+    </nav>
+
+    <div class="header-right">
+      <a class="status-link" href="#network"><span class="status-dot" id="statusDot"></span><span id="headerStatus">OFFLINE</span></a>
+      <button class="menu-button" id="menuButton" type="button" aria-label="Open menu" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <div class="mobile-menu" id="mobileMenu" aria-hidden="true">
+    <nav>
+      <a href="#network">NETWORK <span>↗</span></a>
+      <a href="#blocks">BLOCKS <span>↗</span></a>
+      <a href="#explorer">EXPLORER <span>↗</span></a>
+      <a href="#validators">VALIDATORS <span>↗</span></a>
+    </nav>
+    <div class="mobile-menu-foot">
+      <span>GENESIS NETWORK</span>
+      <span>CHAIN ID · GENESIS-1</span>
+    </div>
+  </div>
+
+  <main>
+    <section class="hero" id="top">
+      <div class="hero-visual" aria-hidden="true">
+        <div class="horizon"></div>
+        <div class="orbital-line orbital-one"></div>
+        <div class="orbital-line orbital-two"></div>
+        <div class="stars"></div>
+      </div>
+      <div class="hero-shade"></div>
+
+      <div class="hero-copy">
+        <p class="eyebrow">SOVEREIGN LAYER ONE</p>
+        <h1>GENESIS<br>NETWORK</h1>
+        <p class="hero-sub">NATIVE ASSET · GEN</p>
+        <a class="outline-button" href="#network">
+          <span>EXPLORE NETWORK</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+        </a>
+      </div>
+
+      <a class="scroll-arrow" href="#network" aria-label="Scroll to network">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v15M6 13l6 6 6-6"/></svg>
+      </a>
+    </section>
+
+    <section class="section section-network" id="network">
+      <div class="section-inner">
+        <div class="section-head">
+          <p class="eyebrow">LIVE NETWORK</p>
+          <h2>NETWORK STATUS</h2>
+          <p class="section-intro" id="networkCopy">
+            WAITING FOR GENESIS RPC. NO SIMULATED BLOCKCHAIN ACTIVITY IS DISPLAYED WHILE THE NODE IS OFFLINE.
+          </p>
+        </div>
+
+        <div class="metrics-grid">
+          <div class="metric">
+            <span>CHAIN ID</span>
+            <strong id="chainId">GENESIS-1</strong>
+          </div>
+          <div class="metric">
+            <span>BLOCK HEIGHT</span>
+            <strong id="blockHeight">—</strong>
+          </div>
+          <div class="metric">
+            <span>TOTAL SUPPLY</span>
+            <strong id="totalSupply">21,000,000 GEN</strong>
+          </div>
+          <div class="metric">
+            <span>BLOCK TIME</span>
+            <strong id="blockTime">—</strong>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section-blocks" id="blocks">
+      <div class="section-inner">
+        <div class="section-head row-head">
+          <div>
+            <p class="eyebrow">EXPLORER</p>
+            <h2>RECENT BLOCKS</h2>
+          </div>
+          <div class="network-state" id="networkStateWrap">
+            <span class="status-dot"></span>
+            <b id="networkState">OFFLINE</b>
+          </div>
+        </div>
+
+        <div class="list-head">
+          <span>HEIGHT</span>
+          <span>TIME</span>
+          <span>TX</span>
+          <span>PROPOSER</span>
+          <span></span>
+        </div>
+        <div class="data-list" id="blocksList">
+          <div class="data-row placeholder-row">
+            <strong>—</strong>
+            <span>WAITING FOR RPC</span>
+            <span>—</span>
+            <code>—</code>
+            <span class="row-arrow">↗</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section-explorer" id="explorer">
+      <div class="section-inner split">
+        <div class="section-head">
+          <p class="eyebrow">ADDRESS EXPLORER</p>
+          <h2>PUBLIC &amp;<br>VERIFIABLE</h2>
+          <p class="section-intro">
+            LOOK UP ANY GENESIS ADDRESS DIRECTLY AGAINST THE NETWORK API.
+          </p>
+        </div>
+
+        <div class="explorer-panel">
+          <form class="search-form" id="addressForm">
+            <label for="addressInput">GENESIS ADDRESS</label>
+            <div class="search-line">
+              <input id="addressInput" autocomplete="off" spellcheck="false" placeholder="gen1..." />
+              <button type="submit" aria-label="Search address">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg>
+              </button>
+            </div>
+          </form>
+
+          <div class="detail-list">
+            <div class="detail-row">
+              <span>ADDRESS</span>
+              <code id="addressValue">NOT SELECTED</code>
+            </div>
+            <div class="detail-row">
+              <span>BALANCE</span>
+              <strong id="addressBalance">— GEN</strong>
+            </div>
+            <div class="detail-row">
+              <span>CHAIN ID</span>
+              <strong id="verifyChainId">GENESIS-1</strong>
+            </div>
+            <div class="detail-row">
+              <span>LATEST BLOCK</span>
+              <strong id="verifyHeight">—</strong>
+            </div>
+            <div class="detail-row">
+              <span>NATIVE ASSET</span>
+              <strong>GEN</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section-validators" id="validators">
+      <div class="section-inner">
+        <div class="section-head row-head">
+          <div>
+            <p class="eyebrow">CONSENSUS</p>
+            <h2>VALIDATORS</h2>
+          </div>
+          <p class="section-intro narrow" id="validatorSummary">WAITING FOR STAKING API.</p>
+        </div>
+
+        <div class="system-lines">
+          <div class="system-line">
+            <div class="line-icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="2.2"/><circle cx="5" cy="18" r="2.2"/><circle cx="19" cy="18" r="2.2"/><path d="M11 7 6 16M13 7l5 9M7 18h10"/></svg>
+            </div>
+            <div><span>BONDED VALIDATORS</span><strong id="validatorCount">—</strong></div>
+          </div>
+
+          <div class="system-line">
+            <div class="line-icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12a7 7 0 1 1 2 5"/><path d="M5 17v-5h5"/></svg>
+            </div>
+            <div><span>NODE SYNC</span><strong id="syncStatus">OFFLINE</strong></div>
+          </div>
+
+          <div class="system-line">
+            <div class="line-icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.6 2.9 8 7 10 4.1-2 7-5.4 7-10V6l-7-3Z"/><path d="m9 12 2 2 4-5"/></svg>
+            </div>
+            <div><span>WALLET SECURITY</span><strong>CLIENT-SIDE SIGNING</strong></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="closing">
+      <div class="closing-visual" aria-hidden="true">
+        <div class="closing-planet"></div>
+      </div>
+      <div class="closing-shade"></div>
+      <div class="closing-copy">
+        <p class="eyebrow">GENESIS NETWORK</p>
+        <h2>ONE NETWORK.<br>OWN CONSENSUS.</h2>
+        <a class="outline-button" href="#top">
+          <span>BACK TO TOP</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg>
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <span>GENESIS © 2026</span>
+    <span>GENESIS-1 · GEN</span>
+  </footer>
+
+  <script src="/script.js"></script>
+</body>
+</html>

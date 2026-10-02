@@ -1,0 +1,14 @@
+syntax = "proto3";
+package genesischain.genesischain.v1;
+
+import "amino/amino.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "genesis-chain/x/genesischain/types";
+
+// Params defines the parameters for the module.
+message Params {
+  option (amino.name) = "genesischain/x/genesischain/Params";
+  option (gogoproto.equal) = true;
+  
+}
