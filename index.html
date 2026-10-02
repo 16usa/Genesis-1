@@ -198,7 +198,7 @@
           <div class="detail-list">
             <div class="detail-row">
               <span>ADDRESS</span>
-              <code id="addressValue">NOT SELECTED</code>
+              <button class="detail-link" id="addressValue" type="button">NOT SELECTED</button>
             </div>
             <div class="detail-row">
               <span>BALANCE</span>
@@ -282,14 +282,63 @@
       </div>
       <div class="tx-detail-list">
         <div class="tx-detail-row"><span>TX HASH</span><code id="txDetailHash">—</code></div>
-        <div class="tx-detail-row"><span>BLOCK</span><strong id="txDetailBlock">—</strong></div>
-        <div class="tx-detail-row"><span>FROM</span><code id="txDetailFrom">—</code></div>
-        <div class="tx-detail-row"><span>TO</span><code id="txDetailTo">—</code></div>
+        <div class="tx-detail-row"><span>BLOCK</span><button class="detail-link" id="txDetailBlock" type="button">—</button></div>
+        <div class="tx-detail-row"><span>FROM</span><button class="detail-link address-link" id="txDetailFrom" type="button">—</button></div>
+        <div class="tx-detail-row"><span>TO</span><button class="detail-link address-link" id="txDetailTo" type="button">—</button></div>
         <div class="tx-detail-row"><span>AMOUNT</span><strong id="txDetailAmount">—</strong></div>
         <div class="tx-detail-row"><span>FEE</span><strong id="txDetailFee">—</strong></div>
         <div class="tx-detail-row"><span>STATUS</span><strong id="txDetailStatus">—</strong></div>
         <div class="tx-detail-row"><span>TIME</span><strong id="txDetailTime">—</strong></div>
         <div class="tx-detail-row"><span>GAS USED</span><strong id="txDetailGas">—</strong></div>
+      </div>
+    </section>
+  </div>
+
+
+  <!-- GENESIS BLOCK + ADDRESS EXPLORER v1 -->
+  <div class="tx-modal" id="blockModal" aria-hidden="true">
+    <div class="tx-modal-backdrop" data-block-close></div>
+    <section class="tx-modal-panel" role="dialog" aria-modal="true" aria-labelledby="blockModalTitle">
+      <div class="tx-modal-header">
+        <div><p class="eyebrow">BLOCK DETAILS</p><h2 id="blockModalTitle">ON-CHAIN BLOCK</h2></div>
+        <button class="tx-modal-close" id="blockModalClose" type="button" aria-label="Close block details"><span></span><span></span></button>
+      </div>
+      <div class="tx-detail-list">
+        <div class="tx-detail-row"><span>HEIGHT</span><strong id="blockDetailHeight">—</strong></div>
+        <div class="tx-detail-row"><span>BLOCK HASH</span><code id="blockDetailHash">—</code></div>
+        <div class="tx-detail-row"><span>CHAIN ID</span><strong id="blockDetailChainId">—</strong></div>
+        <div class="tx-detail-row"><span>TIME</span><strong id="blockDetailTime">—</strong></div>
+        <div class="tx-detail-row"><span>TRANSACTIONS</span><strong id="blockDetailTxCount">—</strong></div>
+        <div class="tx-detail-row"><span>PROPOSER</span><code id="blockDetailProposer">—</code></div>
+        <div class="tx-detail-row"><span>PREVIOUS BLOCK</span><code id="blockDetailPrevious">—</code></div>
+      </div>
+      <div class="entity-subsection">
+        <div class="entity-subsection-title">TRANSACTIONS IN BLOCK</div>
+        <div class="entity-activity-list" id="blockTxList">
+          <div class="entity-empty">LOADING…</div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="tx-modal" id="addressModal" aria-hidden="true">
+    <div class="tx-modal-backdrop" data-address-close></div>
+    <section class="tx-modal-panel" role="dialog" aria-modal="true" aria-labelledby="addressModalTitle">
+      <div class="tx-modal-header">
+        <div><p class="eyebrow">ADDRESS DETAILS</p><h2 id="addressModalTitle">ON-CHAIN ADDRESS</h2></div>
+        <button class="tx-modal-close" id="addressModalClose" type="button" aria-label="Close address details"><span></span><span></span></button>
+      </div>
+      <div class="tx-detail-list">
+        <div class="tx-detail-row"><span>ADDRESS</span><code id="addressDetailAddress">—</code></div>
+        <div class="tx-detail-row"><span>BALANCE</span><strong id="addressDetailBalance">— GEN</strong></div>
+        <div class="tx-detail-row"><span>INDEXED TX</span><strong id="addressDetailTxCount">—</strong></div>
+        <div class="tx-detail-row"><span>NATIVE ASSET</span><strong>GEN</strong></div>
+      </div>
+      <div class="entity-subsection">
+        <div class="entity-subsection-title">RECENT ACTIVITY</div>
+        <div class="entity-activity-list" id="addressTxList">
+          <div class="entity-empty">LOADING…</div>
+        </div>
       </div>
     </section>
   </div>

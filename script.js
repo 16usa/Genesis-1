@@ -75,13 +75,13 @@
       return;
     }
     list.innerHTML = clean.map(b=>`
-      <div class="data-row">
-        <strong>${b.height || '—'}</strong>
-        <span>${fmtTime(b.time)}</span>
-        <span>${b.txCount ?? 0} TX</span>
-        <code>${short(b.proposer,10,8)}</code>
+      <button class="data-row data-row-button" type="button" data-block-height="${escapeHtml(b.height || '')}" aria-label="Open block ${escapeHtml(b.height || '')}">
+        <strong>${escapeHtml(b.height || '—')}</strong>
+        <span>${escapeHtml(fmtTime(b.time))}</span>
+        <span>${escapeHtml(b.txCount ?? 0)} TX</span>
+        <code>${escapeHtml(short(b.proposer,10,8))}</code>
         <span class="row-arrow">↗</span>
-      </div>`).join('');
+      </button>`).join('');
   }
 
 
@@ -128,6 +128,13 @@
     text('txDetailStatus',tx?.status || '—');
     text('txDetailTime',fmtDateTime(tx?.timestamp));
     text('txDetailGas',tx?.gasUsed ? `${tx.gasUsed} / ${tx.gasWanted || '—'}` : '—');
+
+    const blockLink = $('txDetailBlock');
+    const fromLink = $('txDetailFrom');
+    const toLink = $('txDetailTo');
+    if (blockLink) blockLink.dataset.blockHeight = tx?.height || '';
+    if (fromLink) fromLink.dataset.address = tx?.from || '';
+    if (toLink) toLink.dataset.address = tx?.to || '';
   }
   async function openTransaction(hash) {
     const normalized = String(hash || '').trim().toUpperCase();
@@ -151,6 +158,124 @@
     } catch {
       const list = $('transactionsList');
       if (list) list.innerHTML = `<div class="tx-row tx-placeholder"><span class="tx-cell tx-hash" data-label="TX HASH"><code>—</code></span><span class="tx-cell tx-block" data-label="BLOCK">—</span><span class="tx-cell tx-from" data-label="FROM"><code>TRANSACTION API UNAVAILABLE</code></span><span class="tx-cell tx-to" data-label="TO"><code>—</code></span><span class="tx-cell tx-amount" data-label="AMOUNT">—</span><span class="tx-cell tx-fee" data-label="FEE">—</span><span class="tx-cell tx-status" data-label="STATUS">—</span><span class="tx-cell tx-time" data-label="TIME">—</span><span class="tx-arrow">↗</span></div>`;
+    }
+  }
+
+
+  // GENESIS BLOCK + ADDRESS EXPLORER v1
+  function setBlockModal(open) {
+    const modal = $('blockModal');
+    if (!modal) return;
+    modal.classList.toggle('open',open);
+    modal.setAttribute('aria-hidden',String(!open));
+    document.body.classList.toggle('tx-modal-open',open);
+  }
+
+  function setAddressModal(open) {
+    const modal = $('addressModal');
+    if (!modal) return;
+    modal.classList.toggle('open',open);
+    modal.setAttribute('aria-hidden',String(!open));
+    document.body.classList.toggle('tx-modal-open',open);
+  }
+
+  function renderBlockTransactions(hashes=[]) {
+    const list = $('blockTxList');
+    if (!list) return;
+    const clean = hashes.filter(Boolean);
+    if (!clean.length) {
+      list.innerHTML = '<div class="entity-empty">NO TRANSACTIONS IN THIS BLOCK</div>';
+      return;
+    }
+    list.innerHTML = clean.map((hash,index)=>`
+      <button class="entity-activity-row" type="button" data-tx-hash="${escapeHtml(hash)}">
+        <span class="entity-activity-main">
+          <b>TRANSACTION ${index + 1}</b>
+          <code>${escapeHtml(short(hash,16,12))}</code>
+        </span>
+        <span class="entity-activity-arrow">↗</span>
+      </button>
+    `).join('');
+  }
+
+  function renderBlockDetail(block={}) {
+    text('blockDetailHeight',block?.height ? `#${block.height}` : '—');
+    text('blockDetailHash',block?.hash || '—');
+    text('blockDetailChainId',(block?.chainId || '—').toUpperCase());
+    text('blockDetailTime',fmtDateTime(block?.time));
+    text('blockDetailTxCount',String(block?.txCount ?? '—'));
+    text('blockDetailProposer',block?.proposer || '—');
+    text('blockDetailPrevious',block?.previousHash || '—');
+    renderBlockTransactions(block?.txHashes || []);
+  }
+
+  async function openBlock(height) {
+    const h = String(height || '').replace(/^#/,'').trim();
+    if (!/^\d+$/.test(h)) return;
+    setTxModal(false);
+    setAddressModal(false);
+    renderBlockDetail({height:h});
+    text('blockDetailHash','LOADING…');
+    setBlockModal(true);
+    try {
+      const data = await getJson(`/api/genesis/block-detail?height=${encodeURIComponent(h)}`);
+      renderBlockDetail(data.block || {});
+    } catch {
+      text('blockDetailHash','UNAVAILABLE');
+      renderBlockTransactions([]);
+    }
+  }
+
+  function renderAddressTransactions(address,transactions=[]) {
+    const list = $('addressTxList');
+    if (!list) return;
+    const a = String(address || '').toLowerCase();
+    const clean = transactions.filter((tx)=>tx && tx.hash);
+    if (!clean.length) {
+      list.innerHTML = '<div class="entity-empty">NO INDEXED TRANSACTIONS</div>';
+      return;
+    }
+    list.innerHTML = clean.map((tx)=>{
+      const sent = String(tx.from || '').toLowerCase() === a;
+      const peer = sent ? tx.to : tx.from;
+      return `
+        <button class="entity-activity-row address-activity-row" type="button" data-tx-hash="${escapeHtml(tx.hash)}">
+          <span class="entity-activity-main">
+            <b>${sent ? 'SENT' : 'RECEIVED'} · ${escapeHtml(fmtCoin(tx.amount))}</b>
+            <code>${sent ? 'TO' : 'FROM'} ${escapeHtml(short(peer,13,10))}</code>
+          </span>
+          <span class="entity-activity-meta">#${escapeHtml(tx.height || '—')} · ${escapeHtml(fmtTime(tx.timestamp))}</span>
+          <span class="entity-activity-arrow">↗</span>
+        </button>
+      `;
+    }).join('');
+  }
+
+  function renderAddressDetail(data={}) {
+    const address = String(data?.address || '').toLowerCase();
+    const coin = (data?.balances || []).find((item)=>item?.denom === 'ugen');
+    text('addressDetailAddress',address || '—');
+    text('addressDetailBalance',fmtGen(coin ? coin.amount : 0));
+    text('addressDetailTxCount',String(data?.indexedTransactionCount ?? 0));
+    renderAddressTransactions(address,data?.transactions || []);
+  }
+
+  async function openAddress(address) {
+    const a = String(address || '').trim().toLowerCase();
+    if (!/^gen1[0-9a-z]{20,}$/.test(a)) return;
+    setTxModal(false);
+    setBlockModal(false);
+    renderAddressDetail({address:a,balances:[],indexedTransactionCount:'—',transactions:[]});
+    text('addressDetailBalance','LOADING…');
+    const list = $('addressTxList');
+    if (list) list.innerHTML = '<div class="entity-empty">LOADING…</div>';
+    setAddressModal(true);
+    try {
+      const data = await getJson(`/api/genesis/address?address=${encodeURIComponent(a)}&limit=30`);
+      renderAddressDetail(data || {});
+    } catch {
+      text('addressDetailBalance','UNAVAILABLE');
+      if (list) list.innerHTML = '<div class="entity-empty">ADDRESS API UNAVAILABLE</div>';
     }
   }
 
@@ -181,6 +306,47 @@
   });
 
 
+
+  $('blocksList')?.addEventListener('click',(event)=>{
+    const row = event.target.closest('[data-block-height]');
+    if (row?.dataset?.blockHeight) openBlock(row.dataset.blockHeight);
+  });
+
+  $('txDetailBlock')?.addEventListener('click',()=>{
+    const height = $('txDetailBlock')?.dataset?.blockHeight;
+    if (height) openBlock(height);
+  });
+  $('txDetailFrom')?.addEventListener('click',()=>{
+    const address = $('txDetailFrom')?.dataset?.address;
+    if (address) openAddress(address);
+  });
+  $('txDetailTo')?.addEventListener('click',()=>{
+    const address = $('txDetailTo')?.dataset?.address;
+    if (address) openAddress(address);
+  });
+
+  $('addressValue')?.addEventListener('click',()=>{
+    if (currentAddress) openAddress(currentAddress);
+  });
+
+  $('blockModalClose')?.addEventListener('click',()=>setBlockModal(false));
+  $('blockModal')?.querySelectorAll('[data-block-close]').forEach((element)=>element.addEventListener('click',()=>setBlockModal(false)));
+  $('addressModalClose')?.addEventListener('click',()=>setAddressModal(false));
+  $('addressModal')?.querySelectorAll('[data-address-close]').forEach((element)=>element.addEventListener('click',()=>setAddressModal(false)));
+
+  $('blockTxList')?.addEventListener('click',(event)=>{
+    const row = event.target.closest('[data-tx-hash]');
+    if (!row?.dataset?.txHash) return;
+    setBlockModal(false);
+    openTransaction(row.dataset.txHash);
+  });
+  $('addressTxList')?.addEventListener('click',(event)=>{
+    const row = event.target.closest('[data-tx-hash]');
+    if (!row?.dataset?.txHash) return;
+    setAddressModal(false);
+    openTransaction(row.dataset.txHash);
+  });
+
   $('transactionsList')?.addEventListener('click',(event)=>{
     const row = event.target.closest('[data-tx-hash]');
     if (row?.dataset?.txHash) openTransaction(row.dataset.txHash);
@@ -191,7 +357,7 @@
   });
   $('txModalClose')?.addEventListener('click',()=>setTxModal(false));
   $('txModal')?.querySelectorAll('[data-tx-close]').forEach((element)=>element.addEventListener('click',()=>setTxModal(false)));
-  addEventListener('keydown',(event)=>{if (event.key === 'Escape') setTxModal(false);});
+  addEventListener('keydown',(event)=>{if (event.key === 'Escape'){setTxModal(false);setBlockModal(false);setAddressModal(false);}});
 
   async function refresh() {
     try {
