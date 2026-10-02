@@ -21,6 +21,7 @@
     <nav class="desktop-nav" aria-label="Primary navigation">
       <a href="#network">NETWORK</a>
       <a href="#blocks">BLOCKS</a>
+      <a href="#transactions">TRANSACTIONS</a>
       <a href="#explorer">EXPLORER</a>
       <a href="#validators">VALIDATORS</a>
     </nav>
@@ -37,6 +38,7 @@
     <nav>
       <a href="#network">NETWORK <span>↗</span></a>
       <a href="#blocks">BLOCKS <span>↗</span></a>
+      <a href="#transactions">TRANSACTIONS <span>↗</span></a>
       <a href="#explorer">EXPLORER <span>↗</span></a>
       <a href="#validators">VALIDATORS <span>↗</span></a>
     </nav>
@@ -129,6 +131,44 @@
             <span>—</span>
             <code>—</code>
             <span class="row-arrow">↗</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <section class="section section-transactions" id="transactions">
+      <div class="section-inner">
+        <div class="section-head row-head tx-section-head">
+          <div>
+            <p class="eyebrow">ON-CHAIN ACTIVITY</p>
+            <h2>TRANSACTIONS</h2>
+          </div>
+          <form class="tx-search-form" id="txSearchForm">
+            <label for="txSearchInput">TX HASH</label>
+            <div class="tx-search-line">
+              <input id="txSearchInput" autocomplete="off" spellcheck="false" placeholder="64 CHARACTER HASH" />
+              <button type="submit" aria-label="Open transaction">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <div class="tx-list-head" aria-hidden="true">
+          <span>TX HASH</span><span>BLOCK</span><span>FROM</span><span>TO</span><span>AMOUNT</span><span>FEE</span><span>STATUS</span><span>TIME</span><span></span>
+        </div>
+        <div class="tx-list" id="transactionsList">
+          <div class="tx-row tx-placeholder">
+            <span class="tx-cell tx-hash" data-label="TX HASH"><code>—</code></span>
+            <span class="tx-cell tx-block" data-label="BLOCK">—</span>
+            <span class="tx-cell tx-from" data-label="FROM"><code>WAITING FOR API</code></span>
+            <span class="tx-cell tx-to" data-label="TO"><code>—</code></span>
+            <span class="tx-cell tx-amount" data-label="AMOUNT">—</span>
+            <span class="tx-cell tx-fee" data-label="FEE">—</span>
+            <span class="tx-cell tx-status" data-label="STATUS">—</span>
+            <span class="tx-cell tx-time" data-label="TIME">—</span>
+            <span class="tx-arrow">↗</span>
           </div>
         </div>
       </div>
@@ -231,6 +271,28 @@
       </div>
     </section>
   </main>
+
+
+  <div class="tx-modal" id="txModal" aria-hidden="true">
+    <div class="tx-modal-backdrop" data-tx-close></div>
+    <section class="tx-modal-panel" role="dialog" aria-modal="true" aria-labelledby="txModalTitle">
+      <div class="tx-modal-header">
+        <div><p class="eyebrow">TRANSACTION DETAILS</p><h2 id="txModalTitle">ON-CHAIN RECORD</h2></div>
+        <button class="tx-modal-close" id="txModalClose" type="button" aria-label="Close transaction details"><span></span><span></span></button>
+      </div>
+      <div class="tx-detail-list">
+        <div class="tx-detail-row"><span>TX HASH</span><code id="txDetailHash">—</code></div>
+        <div class="tx-detail-row"><span>BLOCK</span><strong id="txDetailBlock">—</strong></div>
+        <div class="tx-detail-row"><span>FROM</span><code id="txDetailFrom">—</code></div>
+        <div class="tx-detail-row"><span>TO</span><code id="txDetailTo">—</code></div>
+        <div class="tx-detail-row"><span>AMOUNT</span><strong id="txDetailAmount">—</strong></div>
+        <div class="tx-detail-row"><span>FEE</span><strong id="txDetailFee">—</strong></div>
+        <div class="tx-detail-row"><span>STATUS</span><strong id="txDetailStatus">—</strong></div>
+        <div class="tx-detail-row"><span>TIME</span><strong id="txDetailTime">—</strong></div>
+        <div class="tx-detail-row"><span>GAS USED</span><strong id="txDetailGas">—</strong></div>
+      </div>
+    </section>
+  </div>
 
   <footer class="site-footer">
     <span>GENESIS © 2026</span>

@@ -84,6 +84,76 @@
       </div>`).join('');
   }
 
+
+  // GENESIS TRANSACTIONS EXPLORER v1
+  const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g,(char)=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
+  const fmtCoin = (coin) => {
+    if (!coin) return '—';
+    if (coin.denom === 'ugen') return fmtGen(coin.amount);
+    return `${coin.amount ?? '—'} ${String(coin.denom || '').toUpperCase()}`.trim();
+  };
+  const fmtDateTime = (iso) => {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '—';
+    return d.toLocaleString([],{year:'numeric',month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'}).toUpperCase();
+  };
+  function renderTransactions(transactions=[]) {
+    const list = $('transactionsList');
+    if (!list) return;
+    const clean = transactions.filter((tx)=>tx && tx.hash).slice(0,12);
+    if (!clean.length) {
+      list.innerHTML = `<div class="tx-row tx-placeholder"><span class="tx-cell tx-hash" data-label="TX HASH"><code>—</code></span><span class="tx-cell tx-block" data-label="BLOCK">—</span><span class="tx-cell tx-from" data-label="FROM"><code>NO TRANSACTIONS YET</code></span><span class="tx-cell tx-to" data-label="TO"><code>—</code></span><span class="tx-cell tx-amount" data-label="AMOUNT">—</span><span class="tx-cell tx-fee" data-label="FEE">—</span><span class="tx-cell tx-status" data-label="STATUS">—</span><span class="tx-cell tx-time" data-label="TIME">—</span><span class="tx-arrow">↗</span></div>`;
+      return;
+    }
+    list.innerHTML = clean.map((tx)=>{
+      const statusClass = tx.status === 'SUCCESS' ? 'success' : 'failed';
+      return `<button class="tx-row" type="button" data-tx-hash="${escapeHtml(tx.hash)}" aria-label="Open transaction ${escapeHtml(tx.hash)}"><span class="tx-cell tx-hash" data-label="TX HASH"><code>${escapeHtml(short(tx.hash,10,8))}</code></span><span class="tx-cell tx-block" data-label="BLOCK">#${escapeHtml(tx.height || '—')}</span><span class="tx-cell tx-from" data-label="FROM"><code>${escapeHtml(short(tx.from,9,7))}</code></span><span class="tx-cell tx-to" data-label="TO"><code>${escapeHtml(short(tx.to,9,7))}</code></span><span class="tx-cell tx-amount" data-label="AMOUNT">${escapeHtml(fmtCoin(tx.amount))}</span><span class="tx-cell tx-fee" data-label="FEE">${escapeHtml(fmtCoin(tx.fee))}</span><span class="tx-cell tx-status ${statusClass}" data-label="STATUS">${escapeHtml(tx.status || '—')}</span><span class="tx-cell tx-time" data-label="TIME">${escapeHtml(fmtTime(tx.timestamp))}</span><span class="tx-arrow">↗</span></button>`;
+    }).join('');
+  }
+  function setTxModal(open) {
+    const modal = $('txModal');
+    if (!modal) return;
+    modal.classList.toggle('open',open);
+    modal.setAttribute('aria-hidden',String(!open));
+    document.body.classList.toggle('tx-modal-open',open);
+  }
+  function renderTxDetail(tx) {
+    text('txDetailHash',tx?.hash || '—');
+    text('txDetailBlock',tx?.height ? `#${tx.height}` : '—');
+    text('txDetailFrom',tx?.from || '—');
+    text('txDetailTo',tx?.to || '—');
+    text('txDetailAmount',fmtCoin(tx?.amount));
+    text('txDetailFee',fmtCoin(tx?.fee));
+    text('txDetailStatus',tx?.status || '—');
+    text('txDetailTime',fmtDateTime(tx?.timestamp));
+    text('txDetailGas',tx?.gasUsed ? `${tx.gasUsed} / ${tx.gasWanted || '—'}` : '—');
+  }
+  async function openTransaction(hash) {
+    const normalized = String(hash || '').trim().toUpperCase();
+    if (!/^[0-9A-F]{64}$/.test(normalized)) {
+      text('txDetailHash','INVALID TRANSACTION HASH');
+      return;
+    }
+    renderTxDetail({hash:normalized,status:'LOADING'});
+    setTxModal(true);
+    try {
+      const data = await getJson(`/api/genesis/tx?hash=${encodeURIComponent(normalized)}`);
+      renderTxDetail(data.transaction || {});
+    } catch {
+      renderTxDetail({hash:normalized,status:'UNAVAILABLE'});
+    }
+  }
+  async function loadTransactions() {
+    try {
+      const data = await getJson('/api/genesis/transactions?limit=12');
+      renderTransactions(data.transactions || []);
+    } catch {
+      const list = $('transactionsList');
+      if (list) list.innerHTML = `<div class="tx-row tx-placeholder"><span class="tx-cell tx-hash" data-label="TX HASH"><code>—</code></span><span class="tx-cell tx-block" data-label="BLOCK">—</span><span class="tx-cell tx-from" data-label="FROM"><code>TRANSACTION API UNAVAILABLE</code></span><span class="tx-cell tx-to" data-label="TO"><code>—</code></span><span class="tx-cell tx-amount" data-label="AMOUNT">—</span><span class="tx-cell tx-fee" data-label="FEE">—</span><span class="tx-cell tx-status" data-label="STATUS">—</span><span class="tx-cell tx-time" data-label="TIME">—</span><span class="tx-arrow">↗</span></div>`;
+    }
+  }
+
   async function lookupAddress(address) {
     const a = String(address || '').trim().toLowerCase();
     if (!/^gen1[0-9a-z]{20,}$/.test(a)) {
@@ -109,6 +179,19 @@
     e.preventDefault();
     lookupAddress($('addressInput')?.value || '');
   });
+
+
+  $('transactionsList')?.addEventListener('click',(event)=>{
+    const row = event.target.closest('[data-tx-hash]');
+    if (row?.dataset?.txHash) openTransaction(row.dataset.txHash);
+  });
+  $('txSearchForm')?.addEventListener('submit',(event)=>{
+    event.preventDefault();
+    openTransaction($('txSearchInput')?.value || '');
+  });
+  $('txModalClose')?.addEventListener('click',()=>setTxModal(false));
+  $('txModal')?.querySelectorAll('[data-tx-close]').forEach((element)=>element.addEventListener('click',()=>setTxModal(false)));
+  addEventListener('keydown',(event)=>{if (event.key === 'Escape') setTxModal(false);});
 
   async function refresh() {
     try {
@@ -161,4 +244,6 @@
 
   setTimeout(refresh,120);
   setInterval(refresh,5000);
+  setTimeout(loadTransactions,240);
+  setInterval(loadTransactions,7000);
 })();

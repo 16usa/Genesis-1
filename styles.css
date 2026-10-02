@@ -331,3 +331,43 @@ svg{display:block;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:
 @media (prefers-reduced-motion:reduce){
   *{scroll-behavior:auto!important;animation:none!important;transition:none!important}
 }
+
+/* GENESIS TRANSACTIONS EXPLORER v1 */
+.tx-section-head{align-items:end}
+.tx-search-form{width:min(520px,42vw);margin:0 0 3px}
+.tx-search-form label{display:block;margin:0 0 10px;color:#777;font-size:10px;font-weight:700;line-height:1;letter-spacing:.10em;text-transform:uppercase}
+.tx-search-line{display:grid;grid-template-columns:1fr 44px;border-bottom:1px solid #78787d}
+.tx-search-line input{min-width:0;height:44px;border:0;outline:0;background:transparent;color:#fff;font-family:var(--font-ui);font-size:12px;letter-spacing:.07em;text-transform:uppercase}
+.tx-search-line input::placeholder{color:#545457}
+.tx-search-line button{width:44px;height:44px;border:0;background:transparent;color:#fff;display:grid;place-items:center;cursor:pointer}
+.tx-search-line button svg{width:18px;height:18px}
+.tx-list-head,.tx-row{display:grid;grid-template-columns:1.32fr .52fr 1fr 1fr .72fr .66fr .62fr .68fr 24px;gap:16px;align-items:center}
+.tx-list-head{padding:0 0 12px;border-bottom:1px solid var(--hair-strong)}
+.tx-list-head span{color:#777;font-size:9px;font-weight:700;line-height:1.2;letter-spacing:.10em;text-transform:uppercase}
+.tx-row{width:100%;min-height:82px;padding:0;border:0;border-bottom:1px solid var(--hair);background:transparent;color:var(--white);text-align:left;appearance:none;cursor:pointer;transition:background .18s ease}
+.tx-row:not(.tx-placeholder):hover,.tx-row:not(.tx-placeholder):focus-visible{background:#080808;outline:none}
+.tx-placeholder{cursor:default}
+.tx-cell{min-width:0;color:#aaa;font-size:11px;letter-spacing:.045em;text-transform:uppercase}
+.tx-cell code{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:inherit;color:inherit}
+.tx-hash code{color:#fff}.tx-block,.tx-amount{color:#e9e9ee;font-weight:700}.tx-status{font-weight:700}.tx-status.success{color:#fff}.tx-status.failed{color:#85858a}.tx-arrow{justify-self:end;color:#fff;font-size:15px}
+.tx-modal{position:fixed;z-index:100;inset:0;visibility:hidden;pointer-events:none}.tx-modal.open{visibility:visible;pointer-events:auto}
+.tx-modal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.72);opacity:0;transition:opacity .25s ease}.tx-modal.open .tx-modal-backdrop{opacity:1}
+.tx-modal-panel{position:absolute;right:0;top:0;width:min(720px,58vw);height:100%;overflow:auto;padding:clamp(88px,9vw,122px) clamp(30px,4vw,68px) 54px;background:#050505;border-left:1px solid var(--hair-strong);transform:translateX(100%);transition:transform .3s ease}
+.tx-modal.open .tx-modal-panel{transform:none}.tx-modal-open{overflow:hidden}
+.tx-modal-header{display:flex;justify-content:space-between;gap:28px;align-items:flex-start;margin-bottom:46px}
+.tx-modal-header h2{margin:0;font-family:var(--font-display);font-size:clamp(38px,4vw,58px);font-weight:700;line-height:.95;letter-spacing:.015em;text-transform:uppercase}
+.tx-modal-close{position:relative;width:38px;height:38px;border:1px solid var(--hair-strong);background:transparent;color:#fff;cursor:pointer}
+.tx-modal-close span{position:absolute;left:9px;right:9px;top:18px;height:1px;background:currentColor}.tx-modal-close span:first-child{transform:rotate(45deg)}.tx-modal-close span:last-child{transform:rotate(-45deg)}
+.tx-detail-list{border-top:1px solid var(--hair-strong)}
+.tx-detail-row{min-height:76px;display:grid;grid-template-columns:120px minmax(0,1fr);gap:24px;align-items:center;border-bottom:1px solid var(--hair)}
+.tx-detail-row>span{color:#777;font-size:10px;font-weight:700;letter-spacing:.10em;text-transform:uppercase}
+.tx-detail-row code,.tx-detail-row strong{min-width:0;justify-self:end;max-width:100%;overflow-wrap:anywhere;text-align:right;font-family:var(--font-ui);font-size:12px;line-height:1.5;letter-spacing:.045em;text-transform:uppercase}
+@media (max-width:1180px){.tx-list-head,.tx-row{grid-template-columns:1.25fr .5fr .9fr .9fr .68fr .6fr .58fr 24px}.tx-list-head span:nth-child(8),.tx-time{display:none}}
+@media (max-width:800px){
+  .tx-section-head{display:block}.tx-search-form{width:100%;margin-top:28px}.tx-list-head{display:none}
+  .tx-row{grid-template-columns:1fr auto;grid-template-areas:"hash status" "amount block" "from from" "to to" "fee time";gap:9px 18px;padding:20px 0;min-height:0}
+  .tx-cell{display:block!important;font-size:11px}.tx-cell::before{content:attr(data-label) "  ";color:#656569;font-size:8px;font-weight:700;letter-spacing:.10em}
+  .tx-hash{grid-area:hash}.tx-block{grid-area:block;justify-self:end}.tx-from{grid-area:from}.tx-to{grid-area:to}.tx-amount{grid-area:amount}.tx-fee{grid-area:fee}.tx-status{grid-area:status;justify-self:end}.tx-time{grid-area:time;justify-self:end}.tx-arrow{display:none}
+  .tx-modal-panel{width:100%;padding:82px 22px 40px;border-left:0}.tx-detail-row{grid-template-columns:92px minmax(0,1fr);gap:14px}
+}
+

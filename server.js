@@ -49,6 +49,52 @@ function blockSummary(data){
     txCount:Array.isArray(b?.data?.txs) ? b.data.txs.length : 0
   };
 }
+
+// GENESIS TRANSACTIONS EXPLORER v1
+function validTxHash(v){return typeof v === 'string' && /^[0-9A-Fa-f]{64}$/.test(v);}
+function firstBankSendMessage(tx){
+  const messages = Array.isArray(tx?.body?.messages) ? tx.body.messages : [];
+  return messages.find((message)=>{
+    const type = String(message?.['@type'] || message?.type_url || '');
+    return type === '/cosmos.bank.v1beta1.MsgSend' || type.endsWith('.MsgSend');
+  }) || null;
+}
+function firstCoin(coins, preferredDenom='ugen'){
+  if(!Array.isArray(coins) || !coins.length) return null;
+  return coins.find((coin)=>coin?.denom === preferredDenom) || coins[0] || null;
+}
+function normalizeTx(tx, response){
+  const message = firstBankSendMessage(tx);
+  if(!message) return null;
+  return {
+    hash:String(response?.txhash || '').toUpperCase(),
+    height:response?.height || null,
+    from:message?.from_address || null,
+    to:message?.to_address || null,
+    amount:firstCoin(message?.amount),
+    fee:firstCoin(tx?.auth_info?.fee?.amount),
+    code:Number(response?.code || 0),
+    status:Number(response?.code || 0) === 0 ? 'SUCCESS' : 'FAILED',
+    timestamp:response?.timestamp || null,
+    gasWanted:response?.gas_wanted || null,
+    gasUsed:response?.gas_used || null
+  };
+}
+async function recentTransactions(limit=12){
+  const safeLimit = Math.max(1,Math.min(25,Number(limit) || 12));
+  const params = new URLSearchParams({query:"message.action='/cosmos.bank.v1beta1.MsgSend'",page:'1',limit:String(safeLimit),order_by:'ORDER_BY_DESC'});
+  const data = await fetchJson(API + '/cosmos/tx/v1beta1/txs?' + params.toString());
+  const txs = Array.isArray(data?.txs) ? data.txs : [];
+  const responses = Array.isArray(data?.tx_responses) ? data.tx_responses : [];
+  return {transactions:txs.map((tx,index)=>normalizeTx(tx,responses[index])).filter(Boolean),total:Number(data?.total || data?.pagination?.total || txs.length || 0)};
+}
+async function transactionByHash(hash){
+  const data = await fetchJson(API + '/cosmos/tx/v1beta1/txs/' + encodeURIComponent(hash));
+  const transaction = normalizeTx(data?.tx,data?.tx_response);
+  if(!transaction) throw new Error('unsupported transaction type');
+  return transaction;
+}
+
 async function overview(){
   const status = await fetchJson(RPC + '/status');
   const sync = status?.result?.sync_info || {};
@@ -85,6 +131,17 @@ const server = http.createServer(async(req,res)=>{
 
     if(u.pathname==='/api/health') return sendJson(res,200,{ok:true,service:'genesis-web'});
     if(u.pathname==='/api/genesis/overview') return sendJson(res,200,await overview());
+
+
+    if(u.pathname==='/api/genesis/transactions'){
+      const limit = u.searchParams.get('limit') || '12';
+      return sendJson(res,200,await recentTransactions(limit));
+    }
+    if(u.pathname==='/api/genesis/tx'){
+      const hash = String(u.searchParams.get('hash') || '').toUpperCase();
+      if(!validTxHash(hash)) return sendJson(res,400,{error:'invalid transaction hash'});
+      return sendJson(res,200,{transaction:await transactionByHash(hash)});
+    }
 
     if(u.pathname==='/api/genesis/balance'){
       const address = String(u.searchParams.get('address') || '').toLowerCase();
