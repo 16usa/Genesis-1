@@ -7,6 +7,7 @@ const PORT = Number(process.env.PORT || 3000);
 const ROOT = __dirname;
 const RPC = String(process.env.GENESIS_RPC_URL || 'http://127.0.0.1:26657').replace(/\/+$/,'');
 const API = String(process.env.GENESIS_API_URL || 'http://127.0.0.1:1317').replace(/\/+$/,'');
+const NODE2_RPC = String(process.env.GENESIS_NODE2_RPC_URL || 'http://127.0.0.1:26667').replace(/\/+$/,'');
 
 const MIME = {
   '.html':'text/html; charset=utf-8',
@@ -529,6 +530,325 @@ async function validatorDetail(operatorAddress){
 }
 
 
+
+// GENESIS MEMPOOL EXPLORER v1
+async function decodePendingTx(base64Tx){
+  const bytes = Buffer.from(String(base64Tx || ''),'base64');
+  const hash = crypto.createHash('sha256').update(bytes).digest('hex').toUpperCase();
+
+  const controller = new AbortController();
+  const timer = setTimeout(()=>controller.abort(),2500);
+
+  try{
+    const response = await fetch(API + '/cosmos/tx/v1beta1/decode',{
+      method:'POST',
+      signal:controller.signal,
+      headers:{
+        accept:'application/json',
+        'content-type':'application/json'
+      },
+      body:JSON.stringify({tx_bytes:String(base64Tx || '')})
+    });
+
+    const data = await response.json().catch(()=>({}));
+    if(!response.ok) throw new Error(`decode upstream ${response.status}`);
+
+    const tx = data?.tx || {};
+    const message = firstBankSendMessage(tx);
+    const messages = Array.isArray(tx?.body?.messages) ? tx.body.messages : [];
+    const firstMessage = messages[0] || {};
+    const typeUrl = String(firstMessage?.['@type'] || firstMessage?.type_url || 'UNKNOWN');
+
+    return {
+      hash,
+      sizeBytes:bytes.length,
+      decoded:true,
+      type:message ? 'GEN TRANSFER' : typeUrl.replace(/^\//,''),
+      from:message?.from_address || null,
+      to:message?.to_address || null,
+      amount:firstCoin(message?.amount),
+      fee:firstCoin(tx?.auth_info?.fee?.amount),
+      gasLimit:tx?.auth_info?.fee?.gas_limit || null
+    };
+  }catch{
+    return {
+      hash,
+      sizeBytes:bytes.length,
+      decoded:false,
+      type:'RAW TRANSACTION',
+      from:null,
+      to:null,
+      amount:null,
+      fee:null,
+      gasLimit:null
+    };
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
+async function mempoolSnapshot(){
+  const data = await fetchJson(RPC + '/unconfirmed_txs?limit=50');
+  const result = data?.result || {};
+  const rawTxs = Array.isArray(result?.txs) ? result.txs : [];
+
+  const decoded = await Promise.allSettled(
+    rawTxs.slice(0,25).map((tx)=>decodePendingTx(tx))
+  );
+
+  const transactions = decoded
+    .filter((item)=>item.status === 'fulfilled')
+    .map((item)=>item.value);
+
+  const total = Number(result?.n_txs ?? result?.total ?? rawTxs.length);
+  const totalBytes = Number(result?.total_bytes ?? 0);
+
+  return {
+    total:Number.isFinite(total) ? total : rawTxs.length,
+    totalBytes:Number.isFinite(totalBytes) ? totalBytes : null,
+    returned:transactions.length,
+    truncated:rawTxs.length > 25 || (Number.isFinite(total) && total > transactions.length),
+    transactions
+  };
+}
+
+
+// GENESIS MULTI-NODE v1
+async function networkPeers(){
+  const [primaryStatusR,primaryNetR,node2StatusR,node2NetR] = await Promise.allSettled([
+    fetchJson(RPC + '/status'),
+    fetchJson(RPC + '/net_info'),
+    fetchJson(NODE2_RPC + '/status'),
+    fetchJson(NODE2_RPC + '/net_info')
+  ]);
+
+  const nodeFromStatus = (result,label) => {
+    if(result.status !== 'fulfilled'){
+      return {label,online:false,id:null,moniker:null,height:null,catchingUp:null,peers:null,version:null};
+    }
+    const root = result.value?.result || {};
+    const info = root?.node_info || {};
+    const sync = root?.sync_info || {};
+    return {
+      label,
+      online:true,
+      id:info?.id || null,
+      moniker:info?.moniker || label,
+      height:Number(sync?.latest_block_height || 0),
+      catchingUp:!!sync?.catching_up,
+      peers:null,
+      version:info?.version || null
+    };
+  };
+
+  const primary = nodeFromStatus(primaryStatusR,'PRIMARY');
+  const secondary = nodeFromStatus(node2StatusR,'NODE 2');
+
+  const primaryNet = primaryNetR.status === 'fulfilled' ? primaryNetR.value?.result || {} : {};
+  const secondaryNet = node2NetR.status === 'fulfilled' ? node2NetR.value?.result || {} : {};
+
+  const primaryPeerCount = Number(primaryNet?.n_peers);
+  const secondaryPeerCount = Number(secondaryNet?.n_peers);
+  primary.peers = Number.isFinite(primaryPeerCount) ? primaryPeerCount : null;
+  secondary.peers = Number.isFinite(secondaryPeerCount) ? secondaryPeerCount : null;
+
+  const peers = Array.isArray(primaryNet?.peers) ? primaryNet.peers.map((peer)=>({
+    id:peer?.node_info?.id || null,
+    moniker:peer?.node_info?.moniker || null,
+    network:peer?.node_info?.network || null,
+    version:peer?.node_info?.version || null,
+    remoteIp:peer?.remote_ip || null,
+    outbound:!!peer?.is_outbound
+  })) : [];
+
+  const connected = !!(
+    primary.online &&
+    secondary.online &&
+    secondary.id &&
+    (
+      peers.some((peer)=>peer.id === secondary.id) ||
+      (Array.isArray(secondaryNet?.peers) && secondaryNet.peers.some((peer)=>peer?.node_info?.id === primary.id))
+    )
+  );
+
+  const heightDelta = primary.online && secondary.online
+    ? Math.abs(Number(primary.height || 0)-Number(secondary.height || 0))
+    : null;
+
+  return {
+    configured:fs.existsSync(path.join(ROOT,'.genesis-node2','config','genesis.json')),
+    connected,
+    heightDelta,
+    primary,
+    secondary,
+    peers
+  };
+}
+
+
+// GENESIS VALIDATOR OPERATIONS v1
+function validatorOpsNode(label,statusResult,netResult){
+  if(statusResult.status !== 'fulfilled'){
+    return {
+      label,online:false,id:null,moniker:null,height:null,
+      catchingUp:null,validatorHex:null,votingPower:null,peers:null
+    };
+  }
+  const root = statusResult.value?.result || {};
+  const node = root?.node_info || {};
+  const sync = root?.sync_info || {};
+  const validator = root?.validator_info || {};
+  const net = netResult.status === 'fulfilled' ? netResult.value?.result || {} : {};
+  const peerCount = Number(net?.n_peers);
+  return {
+    label,
+    online:true,
+    id:node?.id || null,
+    moniker:node?.moniker || label,
+    height:Number(sync?.latest_block_height || 0),
+    catchingUp:!!sync?.catching_up,
+    validatorHex:String(validator?.address || '').toUpperCase() || null,
+    votingPower:validator?.voting_power ?? null,
+    peers:Number.isFinite(peerCount) ? peerCount : null
+  };
+}
+
+async function validatorOperations(){
+  const [
+    validatorsR,slashingParamsR,primaryStatusR,secondaryStatusR,primaryNetR,secondaryNetR
+  ] = await Promise.allSettled([
+    fetchJson(API + '/cosmos/staking/v1beta1/validators?status=BOND_STATUS_BONDED&pagination.limit=100'),
+    fetchJson(API + '/cosmos/slashing/v1beta1/params'),
+    fetchJson(RPC + '/status'),
+    fetchJson(NODE2_RPC + '/status'),
+    fetchJson(RPC + '/net_info'),
+    fetchJson(NODE2_RPC + '/net_info')
+  ]);
+
+  const primary = validatorOpsNode('PRIMARY',primaryStatusR,primaryNetR);
+  const secondary = validatorOpsNode('NODE 2',secondaryStatusR,secondaryNetR);
+  const nodes = [primary,secondary];
+
+  const primaryPeers = primaryNetR.status === 'fulfilled'
+    ? primaryNetR.value?.result?.peers || [] : [];
+  const secondaryPeers = secondaryNetR.status === 'fulfilled'
+    ? secondaryNetR.value?.result?.peers || [] : [];
+
+  const connected = !!(
+    primary.online && secondary.online && primary.id && secondary.id &&
+    (
+      primaryPeers.some((peer)=>peer?.node_info?.id === secondary.id) ||
+      secondaryPeers.some((peer)=>peer?.node_info?.id === primary.id)
+    )
+  );
+
+  const heightDelta = primary.online && secondary.online
+    ? Math.abs(Number(primary.height || 0)-Number(secondary.height || 0))
+    : null;
+
+  const validators = validatorsR.status === 'fulfilled' && Array.isArray(validatorsR.value?.validators)
+    ? validatorsR.value.validators : [];
+
+  const signedBlocksWindow = slashingParamsR.status === 'fulfilled'
+    ? Number(slashingParamsR.value?.params?.signed_blocks_window || 0) : 0;
+
+  let consensusPowers = new Map();
+  if(primary.online && primary.height){
+    try{
+      const data = await fetchJson(
+        RPC + `/validators?height=${encodeURIComponent(primary.height)}&page=1&per_page=100`
+      );
+      const values = Array.isArray(data?.result?.validators) ? data.result.validators : [];
+      consensusPowers = new Map(values.map((item)=>[
+        String(item?.address || '').toUpperCase(),
+        item?.voting_power ?? null
+      ]));
+    }catch{}
+  }
+
+  const operations = await Promise.all(validators.map(async(validator)=>{
+    const identity = consensusIdentity(validator);
+    const commission = validator?.commission?.commission_rates || {};
+    let signing = null;
+
+    if(identity.address){
+      try{
+        const data = await fetchJson(
+          API + `/cosmos/slashing/v1beta1/signing_infos/${encodeURIComponent(identity.address)}`
+        );
+        signing = data?.val_signing_info || null;
+      }catch{}
+    }
+
+    const missedBlocks = signing ? Number(signing?.missed_blocks_counter || 0) : null;
+    const uptime = signedBlocksWindow > 0 && Number.isFinite(missedBlocks)
+      ? Math.max(0,Math.min(100,100-(missedBlocks/signedBlocksWindow*100)))
+      : null;
+
+    const node = nodes.find((item)=>
+      item?.validatorHex && identity.hex &&
+      String(item.validatorHex).toUpperCase() === String(identity.hex).toUpperCase()
+    ) || null;
+
+    return {
+      operatorAddress:validator?.operator_address || null,
+      consensusAddress:identity.address,
+      consensusHex:identity.hex,
+      moniker:validator?.description?.moniker || 'VALIDATOR',
+      status:validatorStatusLabel(validator?.status,!!validator?.jailed),
+      jailed:!!validator?.jailed,
+      tokens:validator?.tokens || null,
+      commissionRate:commission?.rate || null,
+      votingPower:identity.hex
+        ? (consensusPowers.get(String(identity.hex).toUpperCase()) ?? null)
+        : null,
+      missedBlocksCounter:Number.isFinite(missedBlocks) ? missedBlocks : null,
+      signedBlocksWindow:signedBlocksWindow || null,
+      uptimePct:Number.isFinite(uptime) ? uptime : null,
+      node:node ? {
+        label:node.label,online:node.online,height:node.height,
+        catchingUp:node.catchingUp,peers:node.peers,id:node.id
+      } : null
+    };
+  }));
+
+  const warnings = [];
+  if(!primary.online) warnings.push('PRIMARY NODE OFFLINE');
+  if(!secondary.online) warnings.push('NODE 2 OFFLINE');
+  if(primary.online && primary.catchingUp) warnings.push('PRIMARY NODE SYNCING');
+  if(secondary.online && secondary.catchingUp) warnings.push('NODE 2 SYNCING');
+  if(primary.online && secondary.online && !connected) warnings.push('VALIDATOR PEER LINK NOT CONFIRMED');
+  if(heightDelta != null && heightDelta > 3) warnings.push(`VALIDATOR HEIGHT DELTA ${heightDelta}`);
+
+  for(const validator of operations){
+    if(validator.jailed) warnings.push(`${validator.moniker.toUpperCase()} JAILED`);
+    if(validator.status !== 'BONDED') warnings.push(`${validator.moniker.toUpperCase()} ${validator.status}`);
+    if(!validator.node) warnings.push(`${validator.moniker.toUpperCase()} NODE UNMAPPED`);
+    if(validator.uptimePct != null && validator.uptimePct < 99){
+      warnings.push(`${validator.moniker.toUpperCase()} WINDOW UPTIME ${validator.uptimePct.toFixed(2)}%`);
+    }
+  }
+
+  const critical = !primary.online || !secondary.online || operations.some((validator)=>validator.jailed);
+  const degraded = !critical && (
+    !connected ||
+    (heightDelta != null && heightDelta > 3) ||
+    operations.some((validator)=>!validator.node) ||
+    operations.some((validator)=>validator.uptimePct != null && validator.uptimePct < 99)
+  );
+
+  return {
+    state:critical ? 'CRITICAL' : (degraded ? 'DEGRADED' : 'HEALTHY'),
+    connected,
+    heightDelta,
+    bondedValidators:operations.length,
+    signedBlocksWindow:signedBlocksWindow || null,
+    nodes:{primary,secondary},
+    validators:operations,
+    warnings
+  };
+}
+
 // GENESIS NODE HEALTH v1
 async function nodeHealth(){
   const [statusR,netR,mempoolR,apiR] = await Promise.allSettled([
@@ -614,6 +934,9 @@ const server = http.createServer(async(req,res)=>{
     if(u.pathname==='/api/health') return sendJson(res,200,{ok:true,service:'genesis-web'});
     if(u.pathname==='/api/genesis/overview') return sendJson(res,200,await overview());
     if(u.pathname==='/api/genesis/node-health') return sendJson(res,200,await nodeHealth());
+    if(u.pathname==='/api/genesis/validator-operations') return sendJson(res,200,await validatorOperations());
+    if(u.pathname==='/api/genesis/peers') return sendJson(res,200,await networkPeers());
+    if(u.pathname==='/api/genesis/mempool') return sendJson(res,200,await mempoolSnapshot());
 
 
     if(u.pathname==='/api/genesis/transactions'){

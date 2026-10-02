@@ -167,6 +167,77 @@
             </div>
           </div>
         </div>
+
+        <!-- GENESIS MEMPOOL EXPLORER v1 -->
+        <div class="mempool-block">
+          <div class="mempool-head">
+            <div>
+              <span>MEMPOOL EXPLORER</span>
+              <p>LIVE PENDING TRANSACTIONS WAITING FOR INCLUSION</p>
+            </div>
+            <div class="mempool-summary">
+              <strong id="mempoolPendingCount">0 PENDING</strong>
+              <span id="mempoolTotalSize">0 B</span>
+            </div>
+          </div>
+
+          <div class="mempool-list-head" aria-hidden="true">
+            <span>TX HASH</span>
+            <span>TYPE</span>
+            <span>FROM</span>
+            <span>TO</span>
+            <span>AMOUNT</span>
+            <span>FEE</span>
+            <span>SIZE</span>
+            <span></span>
+          </div>
+
+          <div class="mempool-list" id="mempoolList">
+            <div class="mempool-empty">NO PENDING TRANSACTIONS</div>
+          </div>
+        </div>
+
+        <!-- GENESIS MULTI-NODE v1 -->
+        <div class="peers-block">
+          <div class="peers-head">
+            <div>
+              <span>NETWORK PEERS</span>
+              <p>PRIMARY NODE AND SECONDARY SYNC NODE</p>
+            </div>
+            <strong id="peerConnectionState">NOT CONNECTED</strong>
+          </div>
+
+          <div class="peer-node-grid">
+            <div class="peer-node-card">
+              <span>PRIMARY</span>
+              <strong id="peerPrimaryStatus">—</strong>
+              <code id="peerPrimaryId">—</code>
+              <div><span>HEIGHT</span><b id="peerPrimaryHeight">—</b></div>
+              <div><span>PEERS</span><b id="peerPrimaryCount">—</b></div>
+            </div>
+
+            <div class="peer-node-card">
+              <span>NODE 2</span>
+              <strong id="peerSecondaryStatus">—</strong>
+              <code id="peerSecondaryId">—</code>
+              <div><span>HEIGHT</span><b id="peerSecondaryHeight">—</b></div>
+              <div><span>PEERS</span><b id="peerSecondaryCount">—</b></div>
+            </div>
+
+            <div class="peer-sync-card">
+              <span>SYNC DELTA</span>
+              <strong id="peerHeightDelta">—</strong>
+              <p id="peerSyncSummary">SECONDARY NODE NOT RUNNING.</p>
+            </div>
+          </div>
+
+          <div class="peer-list-head" aria-hidden="true">
+            <span>NODE ID</span><span>MONIKER</span><span>DIRECTION</span><span>REMOTE IP</span><span>VERSION</span>
+          </div>
+          <div class="peer-list" id="peerList">
+            <div class="peer-empty">NO CONNECTED PEERS</div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -334,6 +405,32 @@
               <span class="validator-main"><b>WAITING FOR STAKING API</b><code>—</code></span>
               <span>—</span><span>—</span><span>—</span><span class="validator-arrow">↗</span>
             </div>
+          </div>
+        </div>
+
+        <!-- GENESIS VALIDATOR OPERATIONS v1 -->
+        <div class="validator-ops">
+          <div class="validator-ops-head">
+            <div>
+              <span>VALIDATOR OPERATIONS</span>
+              <p>LIVE CONSENSUS AND NODE HEALTH</p>
+            </div>
+            <strong id="validatorOpsState">WAITING</strong>
+          </div>
+
+          <div class="validator-ops-summary">
+            <div><span>CONSENSUS</span><strong id="validatorOpsConsensus">—</strong></div>
+            <div><span>PEER LINK</span><strong id="validatorOpsPeerLink">—</strong></div>
+            <div><span>HEIGHT DELTA</span><strong id="validatorOpsHeightDelta">—</strong></div>
+            <div><span>WARNINGS</span><strong id="validatorOpsWarningCount">—</strong></div>
+          </div>
+
+          <div class="validator-ops-list" id="validatorOpsList">
+            <div class="validator-ops-empty">WAITING FOR VALIDATOR OPERATIONS API</div>
+          </div>
+
+          <div class="validator-ops-alerts" id="validatorOpsAlerts">
+            <span>NO OPERATIONAL DATA YET</span>
           </div>
         </div>
       </div>

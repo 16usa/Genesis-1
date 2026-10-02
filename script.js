@@ -686,7 +686,218 @@
   }
 
 
-  // GENESIS NODE HEALTH v1
+
+  // GENESIS MEMPOOL EXPLORER v1
+  function renderMempool(data={}){
+    const list = $('mempoolList');
+    if(!list) return;
+
+    const transactions = Array.isArray(data?.transactions) ? data.transactions : [];
+    const total = Number(data?.total || 0);
+
+    text('mempoolPendingCount',`${total.toLocaleString('en-US')} PENDING`);
+    text('mempoolTotalSize',data?.totalBytes != null ? fmtNodeBytes(data.totalBytes) : '—');
+
+    if(!transactions.length){
+      list.innerHTML = '<div class="mempool-empty">NO PENDING TRANSACTIONS</div>';
+      return;
+    }
+
+    list.innerHTML = transactions.map((tx)=>`
+      <div class="mempool-row">
+        <span class="mempool-cell mempool-hash" data-label="TX HASH">
+          <code>${escapeHtml(short(tx.hash,12,10))}</code>
+        </span>
+        <span class="mempool-cell" data-label="TYPE">${escapeHtml(tx.type || 'RAW TRANSACTION')}</span>
+        <span class="mempool-cell" data-label="FROM"><code>${escapeHtml(short(tx.from,10,8))}</code></span>
+        <span class="mempool-cell" data-label="TO"><code>${escapeHtml(short(tx.to,10,8))}</code></span>
+        <span class="mempool-cell" data-label="AMOUNT">${escapeHtml(fmtCoin(tx.amount))}</span>
+        <span class="mempool-cell" data-label="FEE">${escapeHtml(fmtCoin(tx.fee))}</span>
+        <span class="mempool-cell" data-label="SIZE">${escapeHtml(fmtNodeBytes(tx.sizeBytes))}</span>
+        <button class="mempool-copy" type="button" data-mempool-copy="${escapeHtml(tx.hash || '')}" aria-label="Copy pending transaction hash">COPY</button>
+      </div>
+    `).join('');
+  }
+
+  async function loadMempool(){
+    try{
+      const data = await getJson('/api/genesis/mempool');
+      renderMempool(data || {});
+    }catch{
+      text('mempoolPendingCount','—');
+      text('mempoolTotalSize','—');
+      const list = $('mempoolList');
+      if(list) list.innerHTML = '<div class="mempool-empty">MEMPOOL API UNAVAILABLE</div>';
+    }
+  }
+
+
+  // GENESIS MULTI-NODE v1
+  function renderPeerList(peers=[]){
+    const list = $('peerList');
+    if(!list) return;
+    const clean = peers.filter((peer)=>peer?.id);
+
+    if(!clean.length){
+      list.innerHTML = '<div class="peer-empty">NO CONNECTED PEERS</div>';
+      return;
+    }
+
+    list.innerHTML = clean.map((peer)=>`
+      <div class="peer-row">
+        <code>${escapeHtml(short(peer.id,14,10))}</code>
+        <span>${escapeHtml(peer.moniker || '—')}</span>
+        <span>${peer.outbound ? 'OUTBOUND' : 'INBOUND'}</span>
+        <code>${escapeHtml(peer.remoteIp || '—')}</code>
+        <span>${escapeHtml(peer.version || '—')}</span>
+      </div>
+    `).join('');
+  }
+
+  function renderPeers(data={}){
+    const primary = data?.primary || {};
+    const secondary = data?.secondary || {};
+
+    text('peerPrimaryStatus',primary.online ? (primary.catchingUp ? 'SYNCING' : 'ONLINE') : 'OFFLINE');
+    text('peerPrimaryId',primary.id || '—');
+    text('peerPrimaryHeight',primary.height != null ? Number(primary.height).toLocaleString('en-US') : '—');
+    text('peerPrimaryCount',primary.peers != null ? String(primary.peers) : '—');
+
+    text('peerSecondaryStatus',secondary.online ? (secondary.catchingUp ? 'SYNCING' : 'ONLINE') : (data?.configured ? 'OFFLINE' : 'NOT SET UP'));
+    text('peerSecondaryId',secondary.id || '—');
+    text('peerSecondaryHeight',secondary.height != null ? Number(secondary.height).toLocaleString('en-US') : '—');
+    text('peerSecondaryCount',secondary.peers != null ? String(secondary.peers) : '—');
+
+    text('peerHeightDelta',data?.heightDelta != null ? String(data.heightDelta) : '—');
+
+    if(data?.connected){
+      text('peerConnectionState','CONNECTED');
+      text('peerSyncSummary',data?.heightDelta === 0
+        ? 'PRIMARY AND NODE 2 ARE AT THE SAME HEIGHT.'
+        : `NODE 2 IS ${data.heightDelta} BLOCK${data.heightDelta===1?'':'S'} FROM PRIMARY.`);
+    }else if(secondary.online){
+      text('peerConnectionState','DISCOVERING');
+      text('peerSyncSummary','NODE 2 IS ONLINE BUT THE PRIMARY P2P LINK IS NOT CONFIRMED YET.');
+    }else if(data?.configured){
+      text('peerConnectionState','NODE 2 OFFLINE');
+      text('peerSyncSummary','START THE GENESIS NODE 2 WORKFLOW MANUALLY.');
+    }else{
+      text('peerConnectionState','NOT CONFIGURED');
+      text('peerSyncSummary','RUN ./setup-node2.sh ONCE.');
+    }
+
+    renderPeerList(data?.peers || []);
+  }
+
+  async function loadPeers(){
+    try{
+      const data = await getJson('/api/genesis/peers');
+      renderPeers(data || {});
+    }catch{
+      renderPeers({});
+    }
+  }
+
+  
+  // GENESIS VALIDATOR OPERATIONS v1
+  const fmtOpsUptime = (value) => {
+    const n = Number(value);
+    if(!Number.isFinite(n)) return '—';
+    return `${n.toFixed(2)}%`;
+  };
+
+  function renderValidatorOperations(data={}){
+    const validators = Array.isArray(data?.validators) ? data.validators : [];
+    const state = String(data?.state || 'WAITING').toUpperCase();
+
+    text('validatorOpsState',state);
+    text('validatorOpsConsensus',data?.bondedValidators != null
+      ? `${data.bondedValidators} BONDED` : '—');
+    text('validatorOpsPeerLink',data?.connected === true ? 'CONNECTED'
+      : (data?.connected === false ? 'NOT CONNECTED' : '—'));
+    text('validatorOpsHeightDelta',data?.heightDelta != null ? String(data.heightDelta) : '—');
+    text('validatorOpsWarningCount',Array.isArray(data?.warnings) ? String(data.warnings.length) : '—');
+
+    const stateEl = $('validatorOpsState');
+    if(stateEl){
+      stateEl.classList.remove('ok','warn','critical');
+      if(state === 'HEALTHY') stateEl.classList.add('ok');
+      else if(state === 'CRITICAL') stateEl.classList.add('critical');
+      else stateEl.classList.add('warn');
+    }
+
+    const list = $('validatorOpsList');
+    if(list){
+      if(!validators.length){
+        list.innerHTML = '<div class="validator-ops-empty">NO BONDED VALIDATORS AVAILABLE</div>';
+      }else{
+        list.innerHTML = validators.map((validator)=>{
+          const node = validator?.node || {};
+          const nodeState = validator?.node
+            ? (node?.online === true ? (node?.catchingUp ? 'SYNCING' : 'ONLINE') : 'OFFLINE')
+            : 'UNMAPPED';
+
+          return `
+            <button class="validator-ops-card" type="button" data-validator-address="${escapeHtml(validator.operatorAddress || '')}">
+              <span class="validator-ops-card-top">
+                <span>
+                  <b>${escapeHtml(validator.moniker || 'VALIDATOR')}</b>
+                  <code>${escapeHtml(short(validator.operatorAddress,16,12))}</code>
+                </span>
+                <strong>${escapeHtml(node?.label || 'CONSENSUS')}</strong>
+              </span>
+
+              <span class="validator-ops-metrics">
+                <span><small>STATUS</small><b>${escapeHtml(validatorStatusText(validator.status))}</b></span>
+                <span><small>NODE</small><b>${escapeHtml(nodeState)}</b></span>
+                <span><small>VOTING POWER</small><b>${escapeHtml(validator.votingPower ?? '—')}</b></span>
+                <span><small>BONDED</small><b>${escapeHtml(fmtGen(validator.tokens))}</b></span>
+                <span><small>COMMISSION</small><b>${escapeHtml(fmtPercent(validator.commissionRate))}</b></span>
+                <span><small>WINDOW UPTIME</small><b>${escapeHtml(fmtOpsUptime(validator.uptimePct))}</b></span>
+                <span><small>MISSED BLOCKS</small><b>${escapeHtml(validator.missedBlocksCounter ?? '—')}</b></span>
+                <span><small>HEIGHT</small><b>${escapeHtml(node?.height != null ? Number(node.height).toLocaleString('en-US') : '—')}</b></span>
+                <span><small>PEERS</small><b>${escapeHtml(node?.peers ?? '—')}</b></span>
+              </span>
+
+              <span class="validator-ops-open">OPEN VALIDATOR ↗</span>
+            </button>
+          `;
+        }).join('');
+      }
+    }
+
+    const alerts = $('validatorOpsAlerts');
+    if(alerts){
+      const warnings = Array.isArray(data?.warnings) ? data.warnings : [];
+      alerts.innerHTML = warnings.length
+        ? warnings.map((warning)=>`<span>${escapeHtml(warning)}</span>`).join('')
+        : '<span>ALL VALIDATOR OPERATIONS NORMAL</span>';
+      alerts.classList.toggle('has-warnings',warnings.length > 0);
+    }
+  }
+
+  async function loadValidatorOperations(){
+    try{
+      const data = await getJson('/api/genesis/validator-operations');
+      renderValidatorOperations(data || {});
+    }catch{
+      renderValidatorOperations({
+        state:'OFFLINE',
+        connected:null,
+        heightDelta:null,
+        bondedValidators:null,
+        validators:[],
+        warnings:['VALIDATOR OPERATIONS API UNAVAILABLE']
+      });
+    }
+  }
+
+  $('validatorOpsList')?.addEventListener('click',(event)=>{
+    const row = event.target.closest('[data-validator-address]');
+    if(row?.dataset?.validatorAddress) openValidator(row.dataset.validatorAddress);
+  });
+
+// GENESIS NODE HEALTH v1
   const fmtNodeAge = (iso) => {
     if(!iso) return '—';
     const time = Date.parse(iso);
@@ -821,4 +1032,10 @@
   setInterval(loadTransactions,7000);
   setTimeout(loadNodeHealth,320);
   setInterval(loadNodeHealth,3000);
+  setTimeout(loadValidatorOperations,420);
+  setInterval(loadValidatorOperations,5000);
+  setTimeout(loadPeers,520);
+  setInterval(loadPeers,3000);
+  setTimeout(loadMempool,420);
+  setInterval(loadMempool,2500);
 })();
