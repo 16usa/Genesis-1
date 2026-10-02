@@ -507,6 +507,10 @@
       text('totalTransactions',d.totalTransactions != null
         ? Number(d.totalTransactions).toLocaleString('en-US') : '—');
       text('bondedGen',d.bondedAmount != null ? fmtGen(d.bondedAmount) : '— GEN');
+      text('totalBlocks',d.totalBlocks != null
+        ? Number(d.totalBlocks).toLocaleString('en-US') : '—');
+      text('activeValidators',d.activeValidators != null
+        ? Number(d.activeValidators).toLocaleString('en-US') : '—');
       renderValidators(d.validators || []);
 
       if (d.validatorCount != null) {
@@ -534,6 +538,8 @@
       text('validatorCount','—');
       text('totalTransactions','—');
       text('bondedGen','— GEN');
+      text('totalBlocks','—');
+      text('activeValidators','—');
       renderValidators([]);
       setOnline(false);
       renderBlocks([]);

@@ -39,6 +39,30 @@ async function fetchJson(url){
     return data;
   }finally{clearTimeout(timer)}
 }
+
+async function rpcJson(method,params={}){
+  const controller = new AbortController();
+  const timer = setTimeout(()=>controller.abort(),4500);
+  try{
+    const r = await fetch(RPC,{
+      method:'POST',
+      signal:controller.signal,
+      headers:{
+        accept:'application/json',
+        'content-type':'application/json'
+      },
+      body:JSON.stringify({
+        jsonrpc:'2.0',
+        id:'genesis-web',
+        method,
+        params
+      })
+    });
+    const data = await r.json().catch(()=>({}));
+    if(!r.ok || data?.error) throw new Error(data?.error?.message || `upstream ${r.status}`);
+    return data;
+  }finally{clearTimeout(timer)}
+}
 function validAddress(v){return typeof v==='string' && /^gen1[0-9a-z]{20,}$/.test(v)}
 function blockSummary(data){
   const b = data?.result?.block || {};
@@ -197,18 +221,42 @@ function averageBlockTimeSeconds(blocks){
   return deltas.reduce((sum,value)=>sum+value,0)/deltas.length;
 }
 async function totalTransactionCount(){
+  const queries = [
+    "tm.event='Tx'",
+    'tx.height > 0'
+  ];
+
+  for(const query of queries){
+    try{
+      const data = await rpcJson('tx_search',{
+        query,
+        prove:false,
+        page:'1',
+        per_page:'1',
+        order_by:'desc'
+      });
+      const total = Number(data?.result?.total_count);
+      if(Number.isFinite(total)) return total;
+    }catch{}
+  }
+
   try{
-    const query = encodeURIComponent('tx.height > 0');
-    const data = await fetchJson(RPC + `/tx_search?query=${query}&prove=false&page=1&per_page=1&order_by=desc`);
-    const total = Number(data?.result?.total_count);
+    const recent = await recentTransactions(1);
+    const total = Number(recent?.total);
     if(Number.isFinite(total)) return total;
   }catch{}
+
   try{
-    const params = new URLSearchParams({page:'1',limit:'1',order_by:'ORDER_BY_DESC'});
+    const params = new URLSearchParams({
+      'pagination.limit':'1',
+      'pagination.count_total':'true',
+      order_by:'ORDER_BY_DESC'
+    });
     const data = await fetchJson(API + '/cosmos/tx/v1beta1/txs?' + params.toString());
-    const total = Number(data?.total ?? data?.pagination?.total);
+    const total = Number(data?.pagination?.total ?? data?.total);
     if(Number.isFinite(total)) return total;
   }catch{}
+
   return null;
 }
 const BECH32_CHARSET = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l';
@@ -405,9 +453,11 @@ async function overview(){
     catchingUp:!!sync.catching_up,
     supplyAmount:supplyR.status === 'fulfilled' ? (supplyR.value?.amount?.amount ?? null) : null,
     validatorCount:validatorsR.status === 'fulfilled' ? validators.length : null,
+    activeValidators:validatorsR.status === 'fulfilled' ? validators.length : null,
     validators:validators.map(validatorSummary),
     bondedAmount:poolR.status === 'fulfilled' ? (poolR.value?.pool?.bonded_tokens ?? null) : null,
     totalTransactions:totalTransactionsR.status === 'fulfilled' ? totalTransactionsR.value : null,
+    totalBlocks:latest || null,
     averageBlockTimeSec:averageBlockTimeSeconds(blocks),
     blocks
   };
