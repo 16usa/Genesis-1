@@ -170,6 +170,207 @@ async function addressDetail(address,limit=30){
   };
 }
 
+
+// GENESIS VALIDATOR EXPLORER v1
+function validValidatorAddress(v){
+  return typeof v === 'string' && /^genvaloper1[0-9a-z]{20,}$/.test(v);
+}
+function validatorStatusLabel(status,jailed=false){
+  if(jailed) return 'JAILED';
+  const value = String(status || '');
+  if(value === 'BOND_STATUS_BONDED') return 'BONDED';
+  if(value === 'BOND_STATUS_UNBONDING') return 'UNBONDING';
+  if(value === 'BOND_STATUS_UNBONDED') return 'UNBONDED';
+  return value.replace(/^BOND_STATUS_/,'') || 'UNKNOWN';
+}
+function averageBlockTimeSeconds(blocks){
+  const times = (blocks || [])
+    .map((b)=>Date.parse(b?.time || ''))
+    .filter(Number.isFinite)
+    .sort((a,b)=>a-b);
+  const deltas = [];
+  for(let i=1;i<times.length;i++){
+    const seconds = (times[i]-times[i-1])/1000;
+    if(Number.isFinite(seconds) && seconds > 0 && seconds < 120) deltas.push(seconds);
+  }
+  if(!deltas.length) return null;
+  return deltas.reduce((sum,value)=>sum+value,0)/deltas.length;
+}
+async function totalTransactionCount(){
+  try{
+    const query = encodeURIComponent('tx.height > 0');
+    const data = await fetchJson(RPC + `/tx_search?query=${query}&prove=false&page=1&per_page=1&order_by=desc`);
+    const total = Number(data?.result?.total_count);
+    if(Number.isFinite(total)) return total;
+  }catch{}
+  try{
+    const params = new URLSearchParams({page:'1',limit:'1',order_by:'ORDER_BY_DESC'});
+    const data = await fetchJson(API + '/cosmos/tx/v1beta1/txs?' + params.toString());
+    const total = Number(data?.total ?? data?.pagination?.total);
+    if(Number.isFinite(total)) return total;
+  }catch{}
+  return null;
+}
+const BECH32_CHARSET = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l';
+function bech32Polymod(values){
+  const generators = [0x3b6a57b2,0x26508e6d,0x1ea119fa,0x3d4233dd,0x2a1462b3];
+  let chk = 1;
+  for(const value of values){
+    const top = chk >>> 25;
+    chk = (((chk & 0x1ffffff) << 5) ^ value) >>> 0;
+    for(let i=0;i<5;i++) if((top >>> i) & 1) chk = (chk ^ generators[i]) >>> 0;
+  }
+  return chk >>> 0;
+}
+function bech32HrpExpand(hrp){
+  const values = [];
+  for(const char of hrp) values.push(char.charCodeAt(0) >>> 5);
+  values.push(0);
+  for(const char of hrp) values.push(char.charCodeAt(0) & 31);
+  return values;
+}
+function convertBits(data,fromBits,toBits,pad=true){
+  let acc = 0;
+  let bits = 0;
+  const ret = [];
+  const maxv = (1 << toBits) - 1;
+  const maxAcc = (1 << (fromBits + toBits - 1)) - 1;
+  for(const value of data){
+    if(value < 0 || (value >>> fromBits) !== 0) return null;
+    acc = ((acc << fromBits) | value) & maxAcc;
+    bits += fromBits;
+    while(bits >= toBits){
+      bits -= toBits;
+      ret.push((acc >>> bits) & maxv);
+    }
+  }
+  if(pad){
+    if(bits) ret.push((acc << (toBits-bits)) & maxv);
+  }else if(bits >= fromBits || ((acc << (toBits-bits)) & maxv)){
+    return null;
+  }
+  return ret;
+}
+function bech32Encode(hrp,bytes){
+  const words = convertBits(Array.from(bytes),8,5,true);
+  if(!words) return null;
+  const values = [...bech32HrpExpand(hrp),...words,0,0,0,0,0,0];
+  const mod = bech32Polymod(values) ^ 1;
+  const checksum = [];
+  for(let p=0;p<6;p++) checksum.push((mod >>> (5*(5-p))) & 31);
+  return hrp + '1' + [...words,...checksum].map((v)=>BECH32_CHARSET[v]).join('');
+}
+function consensusIdentity(validator){
+  try{
+    const key = validator?.consensus_pubkey?.key || validator?.consensus_pubkey?.value;
+    if(!key) return {address:null,hex:null,pubKey:null};
+    const pubKey = Buffer.from(String(key),'base64');
+    const addressBytes = crypto.createHash('sha256').update(pubKey).digest().subarray(0,20);
+    return {
+      address:bech32Encode('genvalcons',addressBytes),
+      hex:addressBytes.toString('hex').toUpperCase(),
+      pubKey:String(key)
+    };
+  }catch{
+    return {address:null,hex:null,pubKey:null};
+  }
+}
+function validatorSummary(validator){
+  const commission = validator?.commission?.commission_rates || {};
+  return {
+    operatorAddress:validator?.operator_address || null,
+    moniker:validator?.description?.moniker || 'VALIDATOR',
+    status:validatorStatusLabel(validator?.status,!!validator?.jailed),
+    jailed:!!validator?.jailed,
+    tokens:validator?.tokens || null,
+    commissionRate:commission?.rate || null
+  };
+}
+async function validatorDetail(operatorAddress){
+  const detail = await fetchJson(API + `/cosmos/staking/v1beta1/validators/${encodeURIComponent(operatorAddress)}`);
+  const validator = detail?.validator || {};
+  const identity = consensusIdentity(validator);
+  const commission = validator?.commission?.commission_rates || {};
+
+  const [signingR,slashingParamsR,statusR] = await Promise.allSettled([
+    identity.address
+      ? fetchJson(API + `/cosmos/slashing/v1beta1/signing_infos/${encodeURIComponent(identity.address)}`)
+      : Promise.reject(new Error('consensus address unavailable')),
+    fetchJson(API + '/cosmos/slashing/v1beta1/params'),
+    fetchJson(RPC + '/status')
+  ]);
+
+  const signing = signingR.status === 'fulfilled' ? signingR.value?.val_signing_info || null : null;
+  const signedBlocksWindow = slashingParamsR.status === 'fulfilled'
+    ? Number(slashingParamsR.value?.params?.signed_blocks_window || 0) : 0;
+  const missedBlocks = signing ? Number(signing?.missed_blocks_counter || 0) : null;
+  const windowUptimePct = signedBlocksWindow > 0 && Number.isFinite(missedBlocks)
+    ? Math.max(0,Math.min(100,100-(missedBlocks/signedBlocksWindow*100))) : null;
+
+  const latestHeight = statusR.status === 'fulfilled'
+    ? Number(statusR.value?.result?.sync_info?.latest_block_height || 0) : 0;
+
+  let votingPower = null;
+  let proposedBlocks = [];
+
+  if(identity.hex && latestHeight > 0){
+    try{
+      const validatorsData = await fetchJson(
+        RPC + `/validators?height=${latestHeight}&page=1&per_page=100`
+      );
+      const values = validatorsData?.result?.validators || [];
+      const match = values.find((item)=>String(item?.address || '').toUpperCase() === identity.hex);
+      votingPower = match?.voting_power ?? null;
+    }catch{}
+
+    try{
+      const minHeight = Math.max(1,latestHeight-19);
+      const chain = await fetchJson(RPC + `/blockchain?minHeight=${minHeight}&maxHeight=${latestHeight}`);
+      const metas = Array.isArray(chain?.result?.block_metas) ? chain.result.block_metas : [];
+      proposedBlocks = metas
+        .filter((meta)=>String(meta?.header?.proposer_address || '').toUpperCase() === identity.hex)
+        .map((meta)=>({
+          height:meta?.header?.height || null,
+          time:meta?.header?.time || null,
+          hash:meta?.block_id?.hash || null,
+          txCount:Number(meta?.num_txs || 0)
+        }))
+        .sort((a,b)=>Number(b.height || 0)-Number(a.height || 0))
+        .slice(0,12);
+    }catch{}
+  }
+
+  return {
+    operatorAddress:validator?.operator_address || operatorAddress,
+    consensusAddress:identity.address,
+    consensusHex:identity.hex,
+    publicKey:identity.pubKey,
+    moniker:validator?.description?.moniker || 'VALIDATOR',
+    identity:validator?.description?.identity || null,
+    website:validator?.description?.website || null,
+    details:validator?.description?.details || null,
+    status:validatorStatusLabel(validator?.status,!!validator?.jailed),
+    jailed:!!validator?.jailed,
+    tokens:validator?.tokens || null,
+    votingPower,
+    delegatorShares:validator?.delegator_shares || null,
+    commissionRate:commission?.rate || null,
+    commissionMaxRate:commission?.max_rate || null,
+    commissionMaxChangeRate:commission?.max_change_rate || null,
+    minSelfDelegation:validator?.min_self_delegation || null,
+    signing:signing ? {
+      missedBlocksCounter:signing?.missed_blocks_counter ?? null,
+      indexOffset:signing?.index_offset ?? null,
+      startHeight:signing?.start_height ?? null,
+      jailedUntil:signing?.jailed_until ?? null,
+      tombstoned:!!signing?.tombstoned,
+      signedBlocksWindow:signedBlocksWindow || null,
+      windowUptimePct
+    } : null,
+    proposedBlocks
+  };
+}
+
 async function overview(){
   const status = await fetchJson(RPC + '/status');
   const sync = status?.result?.sync_info || {};
@@ -183,20 +384,32 @@ async function overview(){
     heights.map(h=>fetchJson(RPC + `/block?height=${h}`))
   );
 
-  const [supplyR,validatorsR] = await Promise.allSettled([
+  const blocks = blockResults
+    .filter((item)=>item.status === 'fulfilled')
+    .map((item)=>blockSummary(item.value));
+
+  const [supplyR,validatorsR,poolR,totalTransactionsR] = await Promise.allSettled([
     fetchJson(API + '/cosmos/bank/v1beta1/supply/by_denom?denom=ugen'),
-    fetchJson(API + '/cosmos/staking/v1beta1/validators?status=BOND_STATUS_BONDED&pagination.limit=100')
+    fetchJson(API + '/cosmos/staking/v1beta1/validators?status=BOND_STATUS_BONDED&pagination.limit=100'),
+    fetchJson(API + '/cosmos/staking/v1beta1/pool'),
+    totalTransactionCount()
   ]);
+
+  const validators = validatorsR.status === 'fulfilled' && Array.isArray(validatorsR.value?.validators)
+    ? validatorsR.value.validators : [];
 
   return {
     chainId:node.network || 'genesis-1',
     height:sync.latest_block_height || null,
     latestTime:sync.latest_block_time || null,
     catchingUp:!!sync.catching_up,
-    supplyAmount:supplyR.status==='fulfilled' ? (supplyR.value?.amount?.amount ?? null) : null,
-    validatorCount:validatorsR.status==='fulfilled' && Array.isArray(validatorsR.value?.validators)
-      ? validatorsR.value.validators.length : null,
-    blocks:blockResults.filter(x=>x.status==='fulfilled').map(x=>blockSummary(x.value))
+    supplyAmount:supplyR.status === 'fulfilled' ? (supplyR.value?.amount?.amount ?? null) : null,
+    validatorCount:validatorsR.status === 'fulfilled' ? validators.length : null,
+    validators:validators.map(validatorSummary),
+    bondedAmount:poolR.status === 'fulfilled' ? (poolR.value?.pool?.bonded_tokens ?? null) : null,
+    totalTransactions:totalTransactionsR.status === 'fulfilled' ? totalTransactionsR.value : null,
+    averageBlockTimeSec:averageBlockTimeSeconds(blocks),
+    blocks
   };
 }
 
@@ -242,6 +455,13 @@ const server = http.createServer(async(req,res)=>{
       const h = String(u.searchParams.get('height') || '');
       if(!/^\d+$/.test(h)) return sendJson(res,400,{error:'invalid height'});
       return sendJson(res,200,await fetchJson(RPC + `/block?height=${encodeURIComponent(h)}`));
+    }
+
+
+    if(u.pathname==='/api/genesis/validator'){
+      const address = String(u.searchParams.get('address') || '').toLowerCase();
+      if(!validValidatorAddress(address)) return sendJson(res,400,{error:'invalid validator operator address'});
+      return sendJson(res,200,{validator:await validatorDetail(address)});
     }
 
     if(u.pathname==='/api/genesis/validators'){

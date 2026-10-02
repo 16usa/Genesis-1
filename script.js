@@ -347,6 +347,22 @@
     openTransaction(row.dataset.txHash);
   });
 
+
+  $('validatorList')?.addEventListener('click',(event)=>{
+    const row = event.target.closest('[data-validator-address]');
+    if(row?.dataset?.validatorAddress) openValidator(row.dataset.validatorAddress);
+  });
+
+  $('validatorModalClose')?.addEventListener('click',()=>setValidatorModal(false));
+  $('validatorModal')?.querySelectorAll('[data-validator-close]').forEach((element)=>element.addEventListener('click',()=>setValidatorModal(false)));
+
+  $('validatorBlocksList')?.addEventListener('click',(event)=>{
+    const row = event.target.closest('[data-block-height]');
+    if(!row?.dataset?.blockHeight) return;
+    setValidatorModal(false);
+    openBlock(row.dataset.blockHeight);
+  });
+
   $('transactionsList')?.addEventListener('click',(event)=>{
     const row = event.target.closest('[data-tx-hash]');
     if (row?.dataset?.txHash) openTransaction(row.dataset.txHash);
@@ -357,7 +373,117 @@
   });
   $('txModalClose')?.addEventListener('click',()=>setTxModal(false));
   $('txModal')?.querySelectorAll('[data-tx-close]').forEach((element)=>element.addEventListener('click',()=>setTxModal(false)));
-  addEventListener('keydown',(event)=>{if (event.key === 'Escape'){setTxModal(false);setBlockModal(false);setAddressModal(false);}});
+  addEventListener('keydown',(event)=>{if (event.key === 'Escape'){setTxModal(false);setBlockModal(false);setAddressModal(false);setValidatorModal(false);}});
+
+
+  // GENESIS VALIDATOR EXPLORER v1
+  const validatorStatusText = (value) => {
+    const status = String(value || '').toUpperCase();
+    if(status.includes('JAILED')) return 'JAILED';
+    if(status.includes('UNBONDING')) return 'UNBONDING';
+    if(status.includes('UNBONDED')) return 'UNBONDED';
+    if(status.includes('BONDED')) return 'BONDED';
+    return status || 'UNKNOWN';
+  };
+  const fmtPercent = (value) => {
+    const n = Number(value);
+    if(!Number.isFinite(n)) return '—';
+    return `${(n*100).toLocaleString('en-US',{maximumFractionDigits:2})}%`;
+  };
+  const fmtPlainNumber = (value) => {
+    const n = Number(value);
+    if(!Number.isFinite(n)) return '—';
+    return n.toLocaleString('en-US',{maximumFractionDigits:6});
+  };
+
+  function renderValidators(validators=[]) {
+    const list = $('validatorList');
+    if(!list) return;
+    const clean = validators.filter((validator)=>validator?.operatorAddress);
+    if(!clean.length){
+      list.innerHTML = `<div class="validator-row validator-placeholder"><span class="validator-main"><b>WAITING FOR STAKING API</b><code>—</code></span><span>—</span><span>—</span><span>—</span><span class="validator-arrow">↗</span></div>`;
+      return;
+    }
+
+    list.innerHTML = clean.map((validator)=>`
+      <button class="validator-row" type="button" data-validator-address="${escapeHtml(validator.operatorAddress)}" aria-label="Open validator ${escapeHtml(validator.moniker || '')}">
+        <span class="validator-main">
+          <b>${escapeHtml(validator.moniker || 'VALIDATOR')}</b>
+          <code>${escapeHtml(short(validator.operatorAddress,16,12))}</code>
+        </span>
+        <span class="validator-status">${escapeHtml(validatorStatusText(validator.status))}</span>
+        <span>${escapeHtml(fmtGen(validator.tokens))}</span>
+        <span>${escapeHtml(fmtPercent(validator.commissionRate))}</span>
+        <span class="validator-arrow">↗</span>
+      </button>
+    `).join('');
+  }
+
+  function setValidatorModal(open) {
+    const modal = $('validatorModal');
+    if(!modal) return;
+    modal.classList.toggle('open',open);
+    modal.setAttribute('aria-hidden',String(!open));
+    document.body.classList.toggle('tx-modal-open',open);
+  }
+
+  function renderValidatorBlocks(blocks=[]) {
+    const list = $('validatorBlocksList');
+    if(!list) return;
+    const clean = blocks.filter((block)=>block?.height);
+    if(!clean.length){
+      list.innerHTML = '<div class="entity-empty">NO PROPOSED BLOCKS IN RECENT WINDOW</div>';
+      return;
+    }
+    list.innerHTML = clean.map((block)=>`
+      <button class="entity-activity-row validator-block-row" type="button" data-block-height="${escapeHtml(block.height)}">
+        <span class="entity-activity-main">
+          <b>BLOCK #${escapeHtml(block.height)}</b>
+          <code>${escapeHtml(short(block.hash,16,12))}</code>
+        </span>
+        <span class="entity-activity-meta">${escapeHtml(fmtTime(block.time))} · ${escapeHtml(block.txCount ?? 0)} TX</span>
+        <span class="entity-activity-arrow">↗</span>
+      </button>
+    `).join('');
+  }
+
+  function renderValidatorDetail(validator={}) {
+    text('validatorDetailMoniker',validator?.moniker || '—');
+    text('validatorDetailOperator',validator?.operatorAddress || '—');
+    text('validatorDetailConsensus',validator?.consensusAddress || '—');
+    text('validatorDetailStatus',validatorStatusText(validator?.status));
+    text('validatorDetailTokens',fmtGen(validator?.tokens));
+    text('validatorDetailPower',validator?.votingPower != null ? fmtPlainNumber(validator.votingPower) : '—');
+    text('validatorDetailShares',validator?.delegatorShares != null ? fmtPlainNumber(validator.delegatorShares) : '—');
+    text('validatorDetailCommission',fmtPercent(validator?.commissionRate));
+    text('validatorDetailMaxCommission',fmtPercent(validator?.commissionMaxRate));
+    text('validatorDetailMaxChange',fmtPercent(validator?.commissionMaxChangeRate));
+    text('validatorDetailMissed',validator?.signing?.missedBlocksCounter != null ? String(validator.signing.missedBlocksCounter) : '—');
+    text('validatorDetailUptime',validator?.signing?.windowUptimePct != null
+      ? `${Number(validator.signing.windowUptimePct).toFixed(2)}%` : '—');
+    text('validatorDetailPubKey',validator?.publicKey || '—');
+    renderValidatorBlocks(validator?.proposedBlocks || []);
+  }
+
+  async function openValidator(address) {
+    const operator = String(address || '').trim().toLowerCase();
+    if(!/^genvaloper1[0-9a-z]{20,}$/.test(operator)) return;
+
+    setTxModal(false);
+    setBlockModal(false);
+    setAddressModal(false);
+    renderValidatorDetail({operatorAddress:operator,status:'LOADING'});
+    text('validatorDetailMoniker','LOADING…');
+    setValidatorModal(true);
+
+    try{
+      const data = await getJson(`/api/genesis/validator?address=${encodeURIComponent(operator)}`);
+      renderValidatorDetail(data.validator || {});
+    }catch{
+      text('validatorDetailMoniker','UNAVAILABLE');
+      renderValidatorBlocks([]);
+    }
+  }
 
   async function refresh() {
     try {
@@ -372,13 +498,16 @@
 
       if (d.supplyAmount != null) text('totalSupply',fmtGen(d.supplyAmount));
 
-      if (d.latestTime) {
-        if (lastBlockTime && d.latestTime !== lastBlockTime) {
-          const sec = Math.max(0,(new Date(d.latestTime)-new Date(lastBlockTime))/1000);
-          if (Number.isFinite(sec) && sec > 0 && sec < 120) text('blockTime',`${sec.toFixed(1)} SEC`);
-        }
-        lastBlockTime = d.latestTime;
+      if (d.averageBlockTimeSec != null) {
+        text('blockTime',`${Number(d.averageBlockTimeSec).toFixed(1)} SEC`);
+      } else {
+        text('blockTime','—');
       }
+
+      text('totalTransactions',d.totalTransactions != null
+        ? Number(d.totalTransactions).toLocaleString('en-US') : '—');
+      text('bondedGen',d.bondedAmount != null ? fmtGen(d.bondedAmount) : '— GEN');
+      renderValidators(d.validators || []);
 
       if (d.validatorCount != null) {
         text('validatorCount',String(d.validatorCount));
@@ -403,6 +532,9 @@
       text('networkCopy','WAITING FOR GENESIS RPC. NO SIMULATED BLOCKCHAIN ACTIVITY IS DISPLAYED WHILE THE NODE IS OFFLINE.');
       text('validatorSummary','WAITING FOR STAKING API.');
       text('validatorCount','—');
+      text('totalTransactions','—');
+      text('bondedGen','— GEN');
+      renderValidators([]);
       setOnline(false);
       renderBlocks([]);
     }

@@ -97,8 +97,17 @@
             <strong id="totalSupply">21,000,000 GEN</strong>
           </div>
           <div class="metric">
-            <span>BLOCK TIME</span>
+            <span>AVERAGE BLOCK TIME</span>
             <strong id="blockTime">—</strong>
+          </div>
+
+          <div class="metric">
+            <span>TOTAL TRANSACTIONS</span>
+            <strong id="totalTransactions">—</strong>
+          </div>
+          <div class="metric">
+            <span>BONDED GEN</span>
+            <strong id="bondedGen">— GEN</strong>
           </div>
         </div>
       </div>
@@ -253,6 +262,23 @@
             <div><span>WALLET SECURITY</span><strong>CLIENT-SIDE SIGNING</strong></div>
           </div>
         </div>
+
+        <!-- GENESIS VALIDATOR EXPLORER v1 -->
+        <div class="validator-list-wrap">
+          <div class="validator-list-head" aria-hidden="true">
+            <span>VALIDATOR</span>
+            <span>STATUS</span>
+            <span>BONDED</span>
+            <span>COMMISSION</span>
+            <span></span>
+          </div>
+          <div class="validator-list" id="validatorList">
+            <div class="validator-row validator-placeholder">
+              <span class="validator-main"><b>WAITING FOR STAKING API</b><code>—</code></span>
+              <span>—</span><span>—</span><span>—</span><span class="validator-arrow">↗</span>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -337,6 +363,40 @@
       <div class="entity-subsection">
         <div class="entity-subsection-title">RECENT ACTIVITY</div>
         <div class="entity-activity-list" id="addressTxList">
+          <div class="entity-empty">LOADING…</div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+
+  <!-- GENESIS VALIDATOR DETAILS v1 -->
+  <div class="tx-modal" id="validatorModal" aria-hidden="true">
+    <div class="tx-modal-backdrop" data-validator-close></div>
+    <section class="tx-modal-panel" role="dialog" aria-modal="true" aria-labelledby="validatorModalTitle">
+      <div class="tx-modal-header">
+        <div><p class="eyebrow">VALIDATOR DETAILS</p><h2 id="validatorModalTitle">ON-CHAIN VALIDATOR</h2></div>
+        <button class="tx-modal-close" id="validatorModalClose" type="button" aria-label="Close validator details"><span></span><span></span></button>
+      </div>
+      <div class="tx-detail-list">
+        <div class="tx-detail-row"><span>MONIKER</span><strong id="validatorDetailMoniker">—</strong></div>
+        <div class="tx-detail-row"><span>OPERATOR</span><code id="validatorDetailOperator">—</code></div>
+        <div class="tx-detail-row"><span>CONSENSUS</span><code id="validatorDetailConsensus">—</code></div>
+        <div class="tx-detail-row"><span>STATUS</span><strong id="validatorDetailStatus">—</strong></div>
+        <div class="tx-detail-row"><span>BONDED TOKENS</span><strong id="validatorDetailTokens">— GEN</strong></div>
+        <div class="tx-detail-row"><span>VOTING POWER</span><strong id="validatorDetailPower">—</strong></div>
+        <div class="tx-detail-row"><span>DELEGATOR SHARES</span><strong id="validatorDetailShares">—</strong></div>
+        <div class="tx-detail-row"><span>COMMISSION</span><strong id="validatorDetailCommission">—</strong></div>
+        <div class="tx-detail-row"><span>MAX COMMISSION</span><strong id="validatorDetailMaxCommission">—</strong></div>
+        <div class="tx-detail-row"><span>MAX CHANGE</span><strong id="validatorDetailMaxChange">—</strong></div>
+        <div class="tx-detail-row"><span>MISSED BLOCKS</span><strong id="validatorDetailMissed">—</strong></div>
+        <div class="tx-detail-row"><span>WINDOW UPTIME</span><strong id="validatorDetailUptime">—</strong></div>
+        <div class="tx-detail-row"><span>PUBLIC KEY</span><code id="validatorDetailPubKey">—</code></div>
+      </div>
+
+      <div class="entity-subsection">
+        <div class="entity-subsection-title">RECENT PROPOSED BLOCKS</div>
+        <div class="entity-activity-list" id="validatorBlocksList">
           <div class="entity-empty">LOADING…</div>
         </div>
       </div>
